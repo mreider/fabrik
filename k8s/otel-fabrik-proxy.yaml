@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabrik-proxy
+  namespace: fabrik-otel
+  labels:
+    app: fabrik-proxy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabrik-proxy
+  template:
+    metadata:
+      labels:
+        app: fabrik-proxy
+    spec:
+      containers:
+      - name: fabrik-proxy
+        image: ghcr.io/mreider/fabrik-proxy:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: FABRIK_SERVICE_URL
+          value: "http://fabrik-service.fabrik-otel:8080"
+        - name: DYNATRACE_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: endpoint
+        - name: DYNATRACE_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: api-token
+        resources:
+          limits:
+            cpu: "300m"
+            memory: "256Mi"
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fabrik-proxy
+  namespace: fabrik-otel
+spec:
+  selector:
+    app: fabrik-proxy
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP
