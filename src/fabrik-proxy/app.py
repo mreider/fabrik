@@ -205,10 +205,13 @@ def proxy_request():
             span.set_attribute("upstream.url", f"{FABRIK_SERVICE_URL}/api/process")
             
             # Call fabrik-service
+            logger.info(f"Making request to: {FABRIK_SERVICE_URL}/api/process")
             response = requests.get(f"{FABRIK_SERVICE_URL}/api/process", timeout=10)
             
             span.set_attribute("http.status_code", response.status_code)
             span.set_attribute("response.size", len(response.content))
+            
+            logger.info(f"Received response from fabrik-service: {response.status_code}")
             
             if response.status_code == 200:
                 logger.info(f"Successfully proxied request to fabrik-service")
@@ -277,12 +280,32 @@ def generate_load():
         "successful_requests": sum(1 for r in results if r.get("success", False))
     })
 
+def check_fabrik_service_health():
+    """Check if fabrik-service is reachable"""
+    try:
+        logger.info(f"Checking fabrik-service health at {FABRIK_SERVICE_URL}/health")
+        response = requests.get(f"{FABRIK_SERVICE_URL}/health", timeout=5)
+        if response.status_code == 200:
+            logger.info("fabrik-service is healthy and reachable")
+            return True
+        else:
+            logger.warning(f"fabrik-service health check returned {response.status_code}")
+            return False
+    except Exception as e:
+        logger.error(f"fabrik-service health check failed: {str(e)}")
+        return False
+
 if __name__ == '__main__':
+    logger.info(f"Starting fabrik-proxy with load generator {'enabled' if LOAD_GENERATOR_ENABLED else 'disabled'}")
+    logger.info(f"fabrik-service URL: {FABRIK_SERVICE_URL}")
+    
+    # Check fabrik-service health
+    check_fabrik_service_health()
+    
     # Start the background load generator automatically if enabled
     if LOAD_GENERATOR_ENABLED:
         logger.info("Starting background load generator automatically")
         thread = threading.Thread(target=background_load_generator, daemon=True)
         thread.start()
     
-    logger.info(f"Starting fabrik-proxy with load generator {'enabled' if LOAD_GENERATOR_ENABLED else 'disabled'}")
     app.run(host='0.0.0.0', port=8080, debug=False)
