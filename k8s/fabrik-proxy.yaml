@@ -26,19 +26,6 @@ spec:
         env:
         - name: FABRIK_SERVICE_URL
           value: "http://fabrik-service.fabrik:8080"
-        - name: DYNATRACE_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: endpoint
-        - name: DYNATRACE_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: api-token
-        # Disable OpenTelemetry SDK since we're using OneAgent
-        - name: OTEL_SDK_DISABLED
-          value: "true"
         resources:
           limits:
             cpu: "300m"

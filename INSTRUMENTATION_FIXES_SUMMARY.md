@@ -24,19 +24,32 @@ This document summarizes the fixes applied to properly configure the fabrik appl
 - **Metadata enrichment**: Configured for namespaces with `dynatrace.com/enrich: "true"`
 
 ### 3. Fabrik-Proxy Configuration (`k8s/fabrik-proxy.yaml`)
-- **Status**: ✅ Fixed
+- **Status**: ✅ Completely cleaned up
 - **Changes**:
   - ✅ Kept `dynatrace.com/inject-oneagent: "true"` annotation
-  - ✅ **ADDED** `OTEL_SDK_DISABLED: "true"` to disable OpenTelemetry SDK
-  - ✅ Kept Dynatrace API credentials for direct API calls
+  - ✅ **REMOVED** all Dynatrace endpoint and API token configurations (OneAgent handles this)
+  - ✅ **REMOVED** all OTEL environment variables (not needed with OneAgent)
+  - ✅ Simplified to only essential configuration
 
 ### 3a. Fabrik-Proxy Application Code (`src/fabrik-proxy/app.py`)
-- **Status**: ✅ Fixed
+- **Status**: ✅ Completely rewritten
 - **Changes**:
-  - ✅ **ADDED** check for `OTEL_SDK_DISABLED` environment variable
-  - ✅ **ADDED** proper console logging setup to ensure HTTP request logs are visible
-  - ✅ When OTEL is disabled, uses basic tracing/metrics providers without exporters
-  - ✅ Maintains all logging functionality regardless of OTEL status
+  - ✅ **REMOVED** all OpenTelemetry imports and dependencies
+  - ✅ **REMOVED** all OTEL initialization code
+  - ✅ **SIMPLIFIED** to use only standard Python logging
+  - ✅ **ADDED** instrumentation indicators in response payloads
+  - ✅ Clean, simple code that relies on OneAgent for all instrumentation
+
+### 3b. Fabrik-Proxy Dependencies (`src/fabrik-proxy/requirements.txt`)
+- **Status**: ✅ Cleaned up
+- **Changes**:
+  - ✅ **REMOVED** all OpenTelemetry packages:
+    - `opentelemetry-api`
+    - `opentelemetry-sdk`
+    - `opentelemetry-instrumentation-flask`
+    - `opentelemetry-instrumentation-requests`
+    - `opentelemetry-exporter-otlp-proto-http`
+  - ✅ **KEPT** only essential packages: Flask and requests
 
 ### 4. Fabrik-Service Configuration (`k8s/fabrik-service.yaml`)
 - **Status**: ✅ Fixed
