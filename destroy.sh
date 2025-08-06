@@ -5,8 +5,7 @@ echo "Destroying Fabrik application..."
 
 # Delete application deployments
 echo "Deleting application deployments..."
-kubectl delete namespace fabrik-otel --ignore-not-found=true
-kubectl delete namespace fabrik-oneagent --ignore-not-found=true
+kubectl delete namespace fabrik --ignore-not-found=true
 
 echo "Fabrik application destroyed successfully!"
 echo ""

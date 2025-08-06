@@ -26,42 +26,35 @@ echo "Applying DynaKube custom resource..."
 kubectl apply -f k8s/dynakube.yaml -n dynatrace
 # --- END Dynatrace Operator Deployment ---
 
-# Create Dynatrace secret in each namespace
+# Create Dynatrace secret in fabrik namespace
 echo "Creating Dynatrace secret..."
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-oneagent
+kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik
 
-# Deploy Redis in both namespaces
+# Deploy Redis
 echo "Deploying Redis..."
-kubectl apply -f k8s/redis.yaml -n fabrik-otel
-kubectl apply -f k8s/redis.yaml -n fabrik-oneagent
+kubectl apply -f k8s/redis.yaml
 
 # Wait for Redis to be ready
 echo "Waiting for Redis to be ready..."
 sleep 15
 
-# Deploy application components for fabrik-otel namespace
-echo "Deploying applications to fabrik-otel namespace..."
-kubectl apply -f k8s/otel-fabrik-service.yaml
-kubectl apply -f k8s/otel-fabrik-proxy.yaml
-
-# Deploy application components for fabrik-oneagent namespace
-echo "Deploying applications to fabrik-oneagent namespace..."
-kubectl apply -f k8s/oneagent-fabrik-service.yaml
-kubectl apply -f k8s/oneagent-fabrik-proxy.yaml
+# Deploy application components
+echo "Deploying applications to fabrik namespace..."
+kubectl apply -f k8s/fabrik-service.yaml
+kubectl apply -f k8s/fabrik-proxy.yaml
 
 echo "Deployment completed successfully!"
 echo "To check the status of the deployments, run:"
-echo "kubectl get pods -n fabrik-otel"
-echo "kubectl get pods -n fabrik-oneagent"
+echo "kubectl get pods -n fabrik"
 echo ""
-echo "To test the applications:"
-echo "# Port forward to test fabrik-otel:"
-echo "kubectl port-forward -n fabrik-otel svc/fabrik-proxy 8080:8080"
+echo "To test the application:"
+echo "kubectl port-forward -n fabrik svc/fabrik-proxy 8080:8080"
 echo "curl http://localhost:8080/api/proxy"
 echo "curl http://localhost:8080/api/load"
+echo "curl http://localhost:8080/health"
 echo ""
-echo "# Port forward to test fabrik-oneagent:"
-echo "kubectl port-forward -n fabrik-oneagent svc/fabrik-proxy 8081:8080"
-echo "curl http://localhost:8081/api/proxy"
-echo "curl http://localhost:8081/api/load"
+echo "To test fabrik-service directly:"
+echo "kubectl port-forward -n fabrik svc/fabrik-service 8081:8080"
+echo "curl http://localhost:8081/api/process"
+echo "curl http://localhost:8081/api/redis/stats"
+echo "curl http://localhost:8081/api/redis/cleanup"

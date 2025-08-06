@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabrik-proxy
-  namespace: fabrik-otel
+  namespace: fabrik
   labels:
     app: fabrik-proxy
 spec:
@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: fabrik-proxy
+      annotations:
+        dynatrace.com/inject-oneagent: "true"
     spec:
       containers:
       - name: fabrik-proxy
@@ -23,17 +25,7 @@ spec:
         - containerPort: 8080
         env:
         - name: FABRIK_SERVICE_URL
-          value: "http://fabrik-service.fabrik-otel:8080"
-        - name: DYNATRACE_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: endpoint
-        - name: DYNATRACE_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: api-token
+          value: "http://fabrik-service.fabrik:8080"
         resources:
           limits:
             cpu: "300m"
@@ -46,7 +38,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fabrik-proxy
-  namespace: fabrik-otel
+  namespace: fabrik
 spec:
   selector:
     app: fabrik-proxy
