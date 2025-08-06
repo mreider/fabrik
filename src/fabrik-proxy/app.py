@@ -109,7 +109,7 @@ def background_load_generator():
     global load_generator_running
     load_generator_running = True
     
-    logger.info("Background load generator started")
+    logger.info("Background load generator started - calling proxy endpoint")
     
     # Wait a bit for the app to fully start
     time.sleep(10)
@@ -130,7 +130,7 @@ def background_load_generator():
                 span.set_attribute("load.interval", interval)
                 
                 try:
-                    # Call our own proxy endpoint (this will then call fabrik-service)
+                    # Call our own proxy endpoint (which will then call fabrik-service)
                     response = requests.get("http://localhost:8080/api/proxy", timeout=10)
                     span.set_attribute("http.status_code", response.status_code)
                     
@@ -138,12 +138,6 @@ def background_load_generator():
                         logger.info(f"Background load request successful (interval: {interval:.1f}s)")
                     else:
                         logger.warning(f"Background load request returned {response.status_code}")
-                        if response.status_code >= 400:
-                            try:
-                                error_details = response.json()
-                                logger.error(f"Background load error details: {error_details}")
-                            except:
-                                logger.error(f"Background load error response: {response.text}")
                         
                 except requests.exceptions.RequestException as e:
                     span.set_attribute("error", True)
