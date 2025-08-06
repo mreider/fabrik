@@ -28,7 +28,7 @@ REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 
 # Initialize OpenTelemetry
 def init_otel():
-    print(f"[OTEL INIT] Starting OpenTelemetry initialization")
+    print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-service")
     print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
     print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
     
@@ -40,6 +40,16 @@ def init_otel():
     else:
         print(f"[OTEL INIT] WARNING: No API token configured")
     
+    # Import resource for proper service identification
+    from opentelemetry.sdk.resources import Resource
+    
+    # Create resource with service information
+    resource = Resource.create({
+        "service.name": "fabrik-service",
+        "service.version": "1.0.0",
+        "service.namespace": "fabrik"
+    })
+    
     try:
         # Traces
         print(f"[OTEL INIT] Setting up trace exporter to {DYNATRACE_ENDPOINT}/v1/traces")
@@ -47,7 +57,7 @@ def init_otel():
             endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
             headers=headers
         )
-        trace.set_tracer_provider(TracerProvider())
+        trace.set_tracer_provider(TracerProvider(resource=resource))
         trace.get_tracer_provider().add_span_processor(
             BatchSpanProcessor(trace_exporter)
         )
@@ -63,7 +73,7 @@ def init_otel():
             exporter=metric_exporter,
             export_interval_millis=10000
         )
-        metrics.set_meter_provider(MeterProvider(metric_readers=[metric_reader]))
+        metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
         print(f"[OTEL INIT] Metric exporter configured successfully")
         
         # Logs
@@ -72,7 +82,7 @@ def init_otel():
             endpoint=f"{DYNATRACE_ENDPOINT}/v1/logs",
             headers=headers
         )
-        logger_provider = LoggerProvider()
+        logger_provider = LoggerProvider(resource=resource)
         logger_provider.add_log_record_processor(
             BatchLogRecordProcessor(log_exporter)
         )

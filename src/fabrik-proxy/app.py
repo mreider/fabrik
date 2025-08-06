@@ -31,12 +31,22 @@ def init_otel():
     if DYNATRACE_API_TOKEN:
         headers = {"Authorization": f"Api-Token {DYNATRACE_API_TOKEN}"}
     
+    # Import resource for proper service identification
+    from opentelemetry.sdk.resources import Resource
+    
+    # Create resource with service information
+    resource = Resource.create({
+        "service.name": "fabrik-proxy",
+        "service.version": "1.0.0",
+        "service.namespace": "fabrik"
+    })
+    
     # Traces
     trace_exporter = OTLPSpanExporter(
         endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
         headers=headers
     )
-    trace.set_tracer_provider(TracerProvider())
+    trace.set_tracer_provider(TracerProvider(resource=resource))
     trace.get_tracer_provider().add_span_processor(
         BatchSpanProcessor(trace_exporter)
     )
@@ -50,14 +60,14 @@ def init_otel():
         exporter=metric_exporter,
         export_interval_millis=10000
     )
-    metrics.set_meter_provider(MeterProvider(metric_readers=[metric_reader]))
+    metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
     
     # Logs
     log_exporter = OTLPLogExporter(
         endpoint=f"{DYNATRACE_ENDPOINT}/v1/logs",
         headers=headers
     )
-    logger_provider = LoggerProvider()
+    logger_provider = LoggerProvider(resource=resource)
     logger_provider.add_log_record_processor(
         BatchLogRecordProcessor(log_exporter)
     )
@@ -67,12 +77,19 @@ def init_otel():
     logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
 
-# Initialize OTEL only if we have Dynatrace configuration
-if DYNATRACE_ENDPOINT and DYNATRACE_API_TOKEN:
+# Always initialize OpenTelemetry
+print(f"[OTEL INIT] Initializing OpenTelemetry for fabrik-proxy")
+print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
+
+try:
     init_otel()
-else:
-    # For OneAgent deployment, just set up basic tracing
+    print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
+except Exception as e:
+    print(f"[OTEL INIT] ERROR: Failed to initialize OpenTelemetry: {str(e)}")
+    # Fallback to basic tracing if initialization fails
     trace.set_tracer_provider(TracerProvider())
+    print(f"[OTEL INIT] Fallback: Basic tracing provider set")
 
 tracer = trace.get_tracer(__name__)
 meter = metrics.get_meter(__name__)
