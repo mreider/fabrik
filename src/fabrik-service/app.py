@@ -28,49 +28,74 @@ REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 
 # Initialize OpenTelemetry
 def init_otel():
+    print(f"[OTEL INIT] Starting OpenTelemetry initialization")
+    print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
+    
     # Headers for Dynatrace
     headers = {}
     if DYNATRACE_API_TOKEN:
         headers = {"Authorization": f"Api-Token {DYNATRACE_API_TOKEN}"}
+        print(f"[OTEL INIT] Using API token authentication")
+    else:
+        print(f"[OTEL INIT] WARNING: No API token configured")
     
-    # Traces
-    trace_exporter = OTLPSpanExporter(
-        endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
-        headers=headers
-    )
-    trace.set_tracer_provider(TracerProvider())
-    trace.get_tracer_provider().add_span_processor(
-        BatchSpanProcessor(trace_exporter)
-    )
-    
-    # Metrics
-    metric_exporter = OTLPMetricExporter(
-        endpoint=f"{DYNATRACE_ENDPOINT}/v1/metrics",
-        headers=headers
-    )
-    metric_reader = PeriodicExportingMetricReader(
-        exporter=metric_exporter,
-        export_interval_millis=10000
-    )
-    metrics.set_meter_provider(MeterProvider(metric_readers=[metric_reader]))
-    
-    # Logs
-    log_exporter = OTLPLogExporter(
-        endpoint=f"{DYNATRACE_ENDPOINT}/v1/logs",
-        headers=headers
-    )
-    logger_provider = LoggerProvider()
-    logger_provider.add_log_record_processor(
-        BatchLogRecordProcessor(log_exporter)
-    )
-    
-    # Configure logging
-    handler = LoggingHandler(logger_provider=logger_provider)
-    logging.getLogger().addHandler(handler)
-    logging.getLogger().setLevel(logging.INFO)
+    try:
+        # Traces
+        print(f"[OTEL INIT] Setting up trace exporter to {DYNATRACE_ENDPOINT}/v1/traces")
+        trace_exporter = OTLPSpanExporter(
+            endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
+            headers=headers
+        )
+        trace.set_tracer_provider(TracerProvider())
+        trace.get_tracer_provider().add_span_processor(
+            BatchSpanProcessor(trace_exporter)
+        )
+        print(f"[OTEL INIT] Trace exporter configured successfully")
+        
+        # Metrics
+        print(f"[OTEL INIT] Setting up metric exporter to {DYNATRACE_ENDPOINT}/v1/metrics")
+        metric_exporter = OTLPMetricExporter(
+            endpoint=f"{DYNATRACE_ENDPOINT}/v1/metrics",
+            headers=headers
+        )
+        metric_reader = PeriodicExportingMetricReader(
+            exporter=metric_exporter,
+            export_interval_millis=10000
+        )
+        metrics.set_meter_provider(MeterProvider(metric_readers=[metric_reader]))
+        print(f"[OTEL INIT] Metric exporter configured successfully")
+        
+        # Logs
+        print(f"[OTEL INIT] Setting up log exporter to {DYNATRACE_ENDPOINT}/v1/logs")
+        log_exporter = OTLPLogExporter(
+            endpoint=f"{DYNATRACE_ENDPOINT}/v1/logs",
+            headers=headers
+        )
+        logger_provider = LoggerProvider()
+        logger_provider.add_log_record_processor(
+            BatchLogRecordProcessor(log_exporter)
+        )
+        print(f"[OTEL INIT] Log exporter configured successfully")
+        
+        # Configure logging
+        handler = LoggingHandler(logger_provider=logger_provider)
+        logging.getLogger().addHandler(handler)
+        logging.getLogger().setLevel(logging.INFO)
+        print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
+        
+    except Exception as e:
+        print(f"[OTEL INIT] ERROR: Failed to initialize OpenTelemetry: {str(e)}")
+        raise
 
 # Initialize OTEL
 init_otel()
+
+# Set up console logging as well
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
 
 # Get tracer and meter
 tracer = trace.get_tracer(__name__)
@@ -101,6 +126,8 @@ redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=Tr
 
 # Logger
 logger = logging.getLogger(__name__)
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 @app.route('/health')
 def health():
