@@ -14,6 +14,8 @@ spec:
     metadata:
       labels:
         app: fabrik-service
+      annotations:
+        dynatrace.com/inject-oneagent: "false"
     spec:
       containers:
       - name: fabrik-service
@@ -41,6 +43,8 @@ spec:
           value: "false"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "http/protobuf"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://dynatrace-activegate.dynatrace:14499/otlp"
         - name: OTEL_SERVICE_NAME
           value: "fabrik-service"
         - name: OTEL_RESOURCE_ATTRIBUTES

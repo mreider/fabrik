@@ -36,15 +36,6 @@ spec:
             secretKeyRef:
               name: dynatrace-secret
               key: api-token
-        # OpenTelemetry configuration
-        - name: OTEL_SDK_DISABLED
-          value: "false"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: "http/protobuf"
-        - name: OTEL_SERVICE_NAME
-          value: "fabrik-proxy"
-        - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-proxy,service.version=1.0.0"
         resources:
           limits:
             cpu: "300m"
