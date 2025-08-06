@@ -138,6 +138,12 @@ def background_load_generator():
                         logger.info(f"Background load request successful (interval: {interval:.1f}s)")
                     else:
                         logger.warning(f"Background load request returned {response.status_code}")
+                        if response.status_code >= 400:
+                            try:
+                                error_details = response.json()
+                                logger.error(f"Background load error details: {error_details}")
+                            except:
+                                logger.error(f"Background load error response: {response.text}")
                         
                 except requests.exceptions.RequestException as e:
                     span.set_attribute("error", True)
@@ -196,10 +202,13 @@ def proxy_request():
     """Proxy requests to fabrik-service"""
     proxy_requests_counter.add(1, {"endpoint": "/api/proxy"})
     
+    logger.info(f"Attempting to proxy request to {FABRIK_SERVICE_URL}/api/process")
+    
     try:
         with tracer.start_as_current_span("proxy_request") as span:
             span.set_attribute("service.name", "fabrik-proxy")
             span.set_attribute("operation", "proxy_to_fabrik_service")
+            span.set_attribute("upstream.url", f"{FABRIK_SERVICE_URL}/api/process")
             
             # Call fabrik-service
             response = requests.get(f"{FABRIK_SERVICE_URL}/api/process", timeout=10)
@@ -217,11 +226,12 @@ def proxy_request():
             else:
                 proxy_errors_counter.add(1, {"type": "upstream_error"})
                 span.set_attribute("error", True)
-                logger.error(f"Upstream service returned {response.status_code}")
+                logger.error(f"Upstream service returned {response.status_code}: {response.text}")
                 return jsonify({
                     "status": "error",
                     "proxy": "fabrik-proxy",
-                    "error": f"Upstream service returned {response.status_code}"
+                    "error": f"Upstream service returned {response.status_code}",
+                    "upstream_response": response.text
                 }), response.status_code
                 
     except requests.exceptions.RequestException as e:
@@ -230,11 +240,12 @@ def proxy_request():
             error_span.set_attribute("error", True)
             error_span.set_attribute("error.message", str(e))
             
-        logger.error(f"Request exception: {str(e)}")
+        logger.error(f"Request exception when calling {FABRIK_SERVICE_URL}/api/process: {str(e)}")
         return jsonify({
             "status": "error",
             "proxy": "fabrik-proxy",
-            "error": str(e)
+            "error": str(e),
+            "upstream_url": f"{FABRIK_SERVICE_URL}/api/process"
         }), 500
 
 @app.route('/api/load')

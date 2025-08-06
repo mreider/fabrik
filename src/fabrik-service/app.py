@@ -109,6 +109,7 @@ def health():
 @app.route('/api/process')
 def process_request():
     """Main processing endpoint - returns 200, some 500s, writes to Redis"""
+    logger.info("Received request at /api/process endpoint")
     request_counter.add(1, {"endpoint": "/api/process"})
     
     with tracer.start_as_current_span("process_request") as span:
@@ -250,4 +251,7 @@ def redis_cleanup():
 
 if __name__ == '__main__':
     logger.info("Starting fabrik-service with OpenTelemetry instrumentation")
+    logger.info(f"Redis connection: {REDIS_HOST}:{REDIS_PORT}")
+    logger.info(f"Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    logger.info("fabrik-service is ready to receive requests")
     app.run(host='0.0.0.0', port=8080, debug=False)
