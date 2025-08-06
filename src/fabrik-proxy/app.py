@@ -77,19 +77,29 @@ def init_otel():
     logging.getLogger().addHandler(handler)
     logging.getLogger().setLevel(logging.INFO)
 
-# Always initialize OpenTelemetry
-print(f"[OTEL INIT] Initializing OpenTelemetry for fabrik-proxy")
-print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
-print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
+# Check if OpenTelemetry should be initialized
+OTEL_SDK_DISABLED = os.getenv('OTEL_SDK_DISABLED', 'false').lower() == 'true'
 
-try:
-    init_otel()
-    print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
-except Exception as e:
-    print(f"[OTEL INIT] ERROR: Failed to initialize OpenTelemetry: {str(e)}")
-    # Fallback to basic tracing if initialization fails
+if OTEL_SDK_DISABLED:
+    print(f"[OTEL INIT] OpenTelemetry SDK is disabled (OTEL_SDK_DISABLED=true)")
+    print(f"[OTEL INIT] Using basic tracing provider for fabrik-proxy")
+    # Set up basic tracing provider without exporters
     trace.set_tracer_provider(TracerProvider())
-    print(f"[OTEL INIT] Fallback: Basic tracing provider set")
+    # Set up basic meter provider without exporters
+    metrics.set_meter_provider(MeterProvider())
+else:
+    print(f"[OTEL INIT] Initializing OpenTelemetry for fabrik-proxy")
+    print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
+
+    try:
+        init_otel()
+        print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
+    except Exception as e:
+        print(f"[OTEL INIT] ERROR: Failed to initialize OpenTelemetry: {str(e)}")
+        # Fallback to basic tracing if initialization fails
+        trace.set_tracer_provider(TracerProvider())
+        print(f"[OTEL INIT] Fallback: Basic tracing provider set")
 
 tracer = trace.get_tracer(__name__)
 meter = metrics.get_meter(__name__)
@@ -109,8 +119,16 @@ proxy_errors_counter = meter.create_counter(
 FlaskInstrumentor().instrument_app(app)
 RequestsInstrumentor().instrument()
 
+# Set up console logging
+console_handler = logging.StreamHandler()
+console_handler.setLevel(logging.INFO)
+formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+console_handler.setFormatter(formatter)
+
 # Logger
 logger = logging.getLogger(__name__)
+logger.addHandler(console_handler)
+logger.setLevel(logging.INFO)
 
 # Configuration
 FABRIK_SERVICE_URL = os.getenv('FABRIK_SERVICE_URL', 'http://fabrik-service:8080')

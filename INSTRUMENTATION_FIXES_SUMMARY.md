@@ -27,12 +27,16 @@ This document summarizes the fixes applied to properly configure the fabrik appl
 - **Status**: ✅ Fixed
 - **Changes**:
   - ✅ Kept `dynatrace.com/inject-oneagent: "true"` annotation
-  - ✅ **REMOVED** all OpenTelemetry environment variables:
-    - `OTEL_SDK_DISABLED`
-    - `OTEL_EXPORTER_OTLP_PROTOCOL`
-    - `OTEL_SERVICE_NAME`
-    - `OTEL_RESOURCE_ATTRIBUTES`
+  - ✅ **ADDED** `OTEL_SDK_DISABLED: "true"` to disable OpenTelemetry SDK
   - ✅ Kept Dynatrace API credentials for direct API calls
+
+### 3a. Fabrik-Proxy Application Code (`src/fabrik-proxy/app.py`)
+- **Status**: ✅ Fixed
+- **Changes**:
+  - ✅ **ADDED** check for `OTEL_SDK_DISABLED` environment variable
+  - ✅ **ADDED** proper console logging setup to ensure HTTP request logs are visible
+  - ✅ When OTEL is disabled, uses basic tracing/metrics providers without exporters
+  - ✅ Maintains all logging functionality regardless of OTEL status
 
 ### 4. Fabrik-Service Configuration (`k8s/fabrik-service.yaml`)
 - **Status**: ✅ Fixed

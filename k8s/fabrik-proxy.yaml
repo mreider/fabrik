@@ -36,6 +36,9 @@ spec:
             secretKeyRef:
               name: dynatrace-secret
               key: api-token
+        # Disable OpenTelemetry SDK since we're using OneAgent
+        - name: OTEL_SDK_DISABLED
+          value: "true"
         resources:
           limits:
             cpu: "300m"
