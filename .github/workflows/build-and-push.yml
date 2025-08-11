@@ -47,3 +47,10 @@ jobs:
           context: ./src/fabrik-service
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-service:latest
+
+      - name: Build and push fabrik-frontend image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/fabrik-frontend
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-frontend:latest
