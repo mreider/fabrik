@@ -12,8 +12,8 @@ kubectl create namespace dynatrace || echo "Namespace dynatrace already exists o
 echo "Deploying Dynatrace Operator..."
 
 # dynatrace namespace is expected to exist at this point
-echo "Installing Dynatrace Operator with CSI..."
-kubectl apply -f https://github.com/Dynatrace/dynatrace-operator/releases/download/v1.5.1/kubernetes-csi.yaml
+echo "Installing Dynatrace Operator without CSI..."
+kubectl apply -f https://github.com/Dynatrace/dynatrace-operator/releases/download/v1.6.1/kubernetes.yaml
 
 echo "Waiting for Dynatrace Operator webhook to be ready..."
 kubectl -n dynatrace wait pod --for=condition=ready --selector=app.kubernetes.io/name=dynatrace-operator,app.kubernetes.io/component=webhook --timeout=300s

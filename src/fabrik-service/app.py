@@ -3,6 +3,7 @@ import time
 import random
 import json
 import logging
+import requests
 import redis
 from flask import Flask, jsonify
 from opentelemetry import trace, metrics
@@ -127,6 +128,11 @@ redis_operations_counter = meter.create_counter(
     description="Total number of Redis operations"
 )
 
+external_requests_counter = meter.create_counter(
+    "fabrik_external_requests_total",
+    description="Total number of external HTTP requests"
+)
+
 # Instrument Flask and Redis
 FlaskInstrumentor().instrument_app(app)
 RedisInstrumentor().instrument()
@@ -182,6 +188,19 @@ def process_request():
                 span.set_attribute("redis.error", True)
                 span.set_attribute("redis.error.message", str(e))
         
+        # Make external HTTP request occasionally (40% chance)
+        external_request_data = None
+        if random.random() < 0.4:
+            try:
+                external_request_data = make_external_request()
+                span.set_attribute("external.request", True)
+                span.set_attribute("external.url", external_request_data["url"])
+                span.set_attribute("external.status_code", external_request_data["status_code"])
+            except Exception as e:
+                logger.error(f"External request failed: {str(e)}")
+                span.set_attribute("external.error", True)
+                span.set_attribute("external.error.message", str(e))
+        
         # Successful response
         response_data = {
             "status": "success",
@@ -193,9 +212,69 @@ def process_request():
         
         if redis_data:
             response_data["redis_operation"] = redis_data
+            
+        if external_request_data:
+            response_data["external_request"] = external_request_data
         
         logger.info(f"Successfully processed request {response_data['request_id']}")
         return jsonify(response_data)
+
+def make_external_request():
+    """Make external HTTP requests to httpstatus testing endpoints"""
+    with tracer.start_as_current_span("external_request") as span:
+        # List of external endpoints to call
+        endpoints = [
+            "https://tools-httpstatus.pickup-services.com/200",
+            "https://tools-httpstatus.pickup-services.com/random/200,201,500-504",
+            "https://tools-httpstatus.pickup-services.com/201",
+            "https://tools-httpstatus.pickup-services.com/500",
+            "https://tools-httpstatus.pickup-services.com/503"
+        ]
+        
+        # Randomly select an endpoint
+        endpoint = random.choice(endpoints)
+        
+        try:
+            logger.info(f"Making external request to: {endpoint}")
+            span.set_attribute("http.url", endpoint)
+            span.set_attribute("http.method", "GET")
+            
+            response = requests.get(endpoint, timeout=5)
+            
+            external_requests_counter.add(1, {
+                "endpoint": endpoint,
+                "status_code": str(response.status_code)
+            })
+            
+            span.set_attribute("http.status_code", response.status_code)
+            span.set_attribute("http.response_size", len(response.content))
+            
+            logger.info(f"External request completed: {endpoint} -> {response.status_code}")
+            
+            return {
+                "url": endpoint,
+                "status_code": response.status_code,
+                "response_time_ms": round(response.elapsed.total_seconds() * 1000, 2),
+                "success": 200 <= response.status_code < 300
+            }
+            
+        except requests.exceptions.RequestException as e:
+            external_requests_counter.add(1, {
+                "endpoint": endpoint,
+                "status_code": "error"
+            })
+            
+            span.set_attribute("error", True)
+            span.set_attribute("error.message", str(e))
+            
+            logger.error(f"External request failed: {endpoint} -> {str(e)}")
+            
+            return {
+                "url": endpoint,
+                "status_code": "error",
+                "error": str(e),
+                "success": False
+            }
 
 def write_to_redis():
     """Write some data to Redis"""
@@ -215,6 +294,38 @@ def write_to_redis():
         
         logger.info(f"Wrote data to Redis key: {key}")
         return {"key": key, "value": value, "ttl": 300}
+
+@app.route('/api/external')
+def external_request_endpoint():
+    """Dedicated endpoint for making external HTTP requests"""
+    logger.info("Received request at /api/external endpoint")
+    request_counter.add(1, {"endpoint": "/api/external"})
+    
+    with tracer.start_as_current_span("external_request_endpoint") as span:
+        span.set_attribute("service.name", "fabrik-service")
+        span.set_attribute("operation", "external_request_endpoint")
+        
+        try:
+            external_request_data = make_external_request()
+            
+            return jsonify({
+                "status": "success",
+                "service": "fabrik-service",
+                "timestamp": time.time(),
+                "external_request": external_request_data
+            })
+            
+        except Exception as e:
+            error_counter.add(1, {"type": "external_request_error"})
+            span.set_attribute("error", True)
+            span.set_attribute("error.message", str(e))
+            logger.error(f"External request endpoint failed: {str(e)}")
+            
+            return jsonify({
+                "status": "error",
+                "service": "fabrik-service",
+                "error": str(e)
+            }), 500
 
 @app.route('/api/redis/stats')
 def redis_stats():
