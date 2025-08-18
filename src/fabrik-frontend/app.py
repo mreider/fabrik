@@ -16,6 +16,7 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 # Configuration
+FABRIK_SERVICE_URL = os.getenv('FABRIK_SERVICE_URL', 'http://fabrik-service.fabrik:8080')
 FABRIK_PROXY_URL = os.getenv('FABRIK_PROXY_URL', 'http://fabrik-proxy.fabrik:8080')
 LOAD_GENERATOR_ENABLED = os.getenv('LOAD_GENERATOR_ENABLED', 'true').lower() == 'true'
 LOAD_INTERVAL_MIN = int(os.getenv('LOAD_INTERVAL_MIN', '3'))  # minimum seconds between requests
@@ -69,7 +70,7 @@ def health():
         "instrumentation": "oneagent",
         "load_generator_enabled": LOAD_GENERATOR_ENABLED,
         "load_generator_running": load_generator_running,
-        "proxy_url": FABRIK_PROXY_URL
+        "service_url": FABRIK_SERVICE_URL
     })
 
 @app.route('/api/load/start')
@@ -107,40 +108,40 @@ def load_generator_status():
 
 @app.route('/api/call-proxy')
 def call_proxy():
-    """Make a single call to the fabrik-proxy"""
-    logger.info(f"Making single request to fabrik-proxy: {FABRIK_PROXY_URL}/api/proxy")
+    """Make a single call to the fabrik-service"""
+    logger.info(f"Making single request to fabrik-service: {FABRIK_SERVICE_URL}/api/process")
     
     try:
-        response = requests.get(f"{FABRIK_PROXY_URL}/api/proxy", timeout=10)
+        response = requests.get(f"{FABRIK_SERVICE_URL}/api/process", timeout=10)
         
-        logger.info(f"Received response from fabrik-proxy: {response.status_code}")
+        logger.info(f"Received response from fabrik-service: {response.status_code}")
         
         if response.status_code == 200:
-            logger.info(f"Successfully called fabrik-proxy")
+            logger.info(f"Successfully called fabrik-service")
             return jsonify({
                 "status": "success",
                 "frontend": "fabrik-frontend",
                 "instrumentation": "oneagent",
-                "proxy_response": response.json()
+                "service_response": response.json()
             })
         else:
-            logger.error(f"Proxy returned {response.status_code}: {response.text}")
+            logger.error(f"Service returned {response.status_code}: {response.text}")
             return jsonify({
                 "status": "error",
                 "frontend": "fabrik-frontend",
                 "instrumentation": "oneagent",
-                "error": f"Proxy returned {response.status_code}",
-                "proxy_response": response.text
+                "error": f"Service returned {response.status_code}",
+                "service_response": response.text
             }), response.status_code
                 
     except requests.exceptions.RequestException as e:
-        logger.error(f"Request exception when calling proxy: {str(e)}")
+        logger.error(f"Request exception when calling service: {str(e)}")
         return jsonify({
             "status": "error",
             "frontend": "fabrik-frontend",
             "instrumentation": "oneagent",
             "error": str(e),
-            "proxy_url": f"{FABRIK_PROXY_URL}/api/proxy"
+            "service_url": f"{FABRIK_SERVICE_URL}/api/process"
         }), 500
 
 @app.route('/api/load')
