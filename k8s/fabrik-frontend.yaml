@@ -24,6 +24,8 @@ spec:
         ports:
         - containerPort: 8080
         env:
+        - name: DT_SERVICE_NAME
+          value: "fabrik-frontend"
         - name: FABRIK_PROXY_URL
           value: "http://fabrik-proxy.fabrik:8080"
         - name: LOAD_GENERATOR_ENABLED
