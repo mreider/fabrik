@@ -20,6 +20,7 @@ spec:
     capabilities:
       - routing
       - kubernetes-monitoring
+      - metrics-ingest
     resources:
       requests:
         cpu: 500m

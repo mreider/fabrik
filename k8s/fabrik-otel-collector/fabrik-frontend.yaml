@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabrik-frontend
-  namespace: fabrik
+  namespace: fabrik-otel-collector
   labels:
     app: fabrik-frontend
 spec:
@@ -15,7 +15,7 @@ spec:
       labels:
         app: fabrik-frontend
       annotations:
-        dynatrace.com/inject: "true"
+        dynatrace.com/inject: "false"
     spec:
       containers:
       - name: fabrik-frontend
@@ -24,18 +24,31 @@ spec:
         ports:
         - containerPort: 8080
         env:
-        - name: DT_SERVICE_NAME
-          value: "fabrik-frontend"
         - name: FABRIK_SERVICE_URL
-          value: "http://fabrik-service.fabrik:8080"
+          value: "http://fabrik-service.fabrik-otel-collector:8080"
         - name: FABRIK_PROXY_URL
-          value: "http://fabrik-proxy.fabrik:8080"
+          value: "http://fabrik-proxy.fabrik-otel-collector:8080"
         - name: LOAD_GENERATOR_ENABLED
           value: "true"
         - name: LOAD_INTERVAL_MIN
           value: "3"
         - name: LOAD_INTERVAL_MAX
           value: "8"
+        - name: DYNATRACE_ENDPOINT
+          value: "http://otel-collector.fabrik-otel-collector:4318"
+        - name: DYNATRACE_API_TOKEN
+          value: ""
+        # OpenTelemetry configuration to send to local collector
+        - name: OTEL_SDK_DISABLED
+          value: "false"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "http/protobuf"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "http://otel-collector.fabrik-otel-collector:4318"
+        - name: OTEL_SERVICE_NAME
+          value: "fabrik-frontend-otel-collector"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=fabrik-frontend-otel-collector,service.version=1.0.0"
         resources:
           limits:
             cpu: "300m"
@@ -48,7 +61,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fabrik-frontend
-  namespace: fabrik
+  namespace: fabrik-otel-collector
 spec:
   selector:
     app: fabrik-frontend

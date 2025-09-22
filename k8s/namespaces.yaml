@@ -1,9 +1,39 @@
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fabrik
+  name: fabrik-oneagent
   labels:
-    name: fabrik
-    instrumentation: mixed
+    name: fabrik-oneagent
+    instrumentation: oneagent
     dynatrace.com/inject: "true"
     dynatrace.com/enrich: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fabrik-otel-enriched
+  labels:
+    name: fabrik-otel-enriched
+    instrumentation: opentelemetry
+    dynatrace.com/inject: "false"
+    dynatrace.com/enrich: "true"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fabrik-otel-standalone
+  labels:
+    name: fabrik-otel-standalone
+    instrumentation: opentelemetry
+    dynatrace.com/inject: "false"
+    dynatrace.com/enrich: "false"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fabrik-otel-collector
+  labels:
+    name: fabrik-otel-collector
+    instrumentation: opentelemetry-collector
+    dynatrace.com/inject: "false"
+    dynatrace.com/enrich: "false"

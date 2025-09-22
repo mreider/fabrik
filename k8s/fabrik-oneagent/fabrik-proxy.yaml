@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabrik-proxy
-  namespace: fabrik
+  namespace: fabrik-oneagent
   labels:
     app: fabrik-proxy
 spec:
@@ -25,9 +25,12 @@ spec:
         - containerPort: 8080
         env:
         - name: DT_SERVICE_NAME
-          value: "fabrik-proxy"
-        - name: FABRIK_FRONTEND_URL
-          value: "http://fabrik-frontend.fabrik:8080"
+          value: "fabrik-proxy-oneagent"
+        - name: FABRIK_SERVICE_URL
+          value: "http://fabrik-service.fabrik-oneagent:8080"
+        # Disable OpenTelemetry for OneAgent-only setup
+        - name: OTEL_SDK_DISABLED
+          value: "true"
         resources:
           limits:
             cpu: "300m"
@@ -40,7 +43,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fabrik-proxy
-  namespace: fabrik
+  namespace: fabrik-oneagent
 spec:
   selector:
     app: fabrik-proxy

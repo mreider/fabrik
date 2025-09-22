@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fabrik-service
+  namespace: fabrik-otel-enriched
+  labels:
+    app: fabrik-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: fabrik-service
+  template:
+    metadata:
+      labels:
+        app: fabrik-service
+      annotations:
+        dynatrace.com/inject: "false"
+    spec:
+      containers:
+      - name: fabrik-service
+        image: ghcr.io/mreider/fabrik-service:latest
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 8080
+        env:
+        - name: REDIS_HOST
+          value: "redis.fabrik-otel-enriched"
+        - name: REDIS_PORT
+          value: "6379"
+        - name: DYNATRACE_ENDPOINT
+          value: "https://dynakube-activegate.dynatrace:443"
+        - name: DYNATRACE_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: api-token
+        # OpenTelemetry configuration with enrichment
+        - name: OTEL_SDK_DISABLED
+          value: "false"
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: "http/protobuf"
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
+          value: "https://dynakube-activegate.dynatrace:443/otlp"
+        - name: OTEL_SERVICE_NAME
+          value: "fabrik-service-otel-enriched"
+        - name: OTEL_RESOURCE_ATTRIBUTES
+          value: "service.name=fabrik-service-otel-enriched,service.version=1.0.0"
+        resources:
+          limits:
+            cpu: "400m"
+            memory: "512Mi"
+          requests:
+            cpu: "200m"
+            memory: "256Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: fabrik-service
+  namespace: fabrik-otel-enriched
+spec:
+  selector:
+    app: fabrik-service
+  ports:
+  - port: 8080
+    targetPort: 8080
+  type: ClusterIP

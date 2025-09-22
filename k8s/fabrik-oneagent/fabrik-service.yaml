@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabrik-service
-  namespace: fabrik
+  namespace: fabrik-oneagent
   labels:
     app: fabrik-service
 spec:
@@ -15,7 +15,7 @@ spec:
       labels:
         app: fabrik-service
       annotations:
-        dynatrace.com/inject-oneagent: "false"
+        dynatrace.com/inject: "true"
     spec:
       containers:
       - name: fabrik-service
@@ -25,30 +25,14 @@ spec:
         - containerPort: 8080
         env:
         - name: REDIS_HOST
-          value: "redis.fabrik"
+          value: "redis.fabrik-oneagent"
         - name: REDIS_PORT
           value: "6379"
-        - name: DYNATRACE_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: endpoint
-        - name: DYNATRACE_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: api-token
-        # OpenTelemetry configuration
+        - name: DT_SERVICE_NAME
+          value: "fabrik-service-oneagent"
+        # Disable OpenTelemetry for OneAgent-only setup
         - name: OTEL_SDK_DISABLED
-          value: "false"
-        - name: OTEL_EXPORTER_OTLP_PROTOCOL
-          value: "http/protobuf"
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://dynatrace-activegate.dynatrace:14499/otlp"
-        - name: OTEL_SERVICE_NAME
-          value: "fabrik-service"
-        - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-service,service.version=1.0.0"
+          value: "true"
         resources:
           limits:
             cpu: "400m"
@@ -61,7 +45,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fabrik-service
-  namespace: fabrik
+  namespace: fabrik-oneagent
 spec:
   selector:
     app: fabrik-service
