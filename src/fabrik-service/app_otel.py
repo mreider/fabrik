@@ -133,8 +133,6 @@ FlaskInstrumentor().instrument_app(app)
 RedisInstrumentor().instrument()
 MySQLInstrumentor().instrument()
 PikaInstrumentor().instrument()
-from opentelemetry.instrumentation.requests import RequestsInstrumentor
-RequestsInstrumentor().instrument()
 
 # Redis connection
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
