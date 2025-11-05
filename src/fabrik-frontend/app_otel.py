@@ -5,6 +5,17 @@ import requests
 import logging
 import threading
 from flask import Flask, jsonify, request
+from opentelemetry import trace, metrics
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+from opentelemetry.sdk.trace import TracerProvider
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.metrics import MeterProvider
+from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+from opentelemetry.instrumentation.flask import FlaskInstrumentor
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.sdk.resources import Resource
+from opentelemetry.trace import Status, StatusCode
 
 app = Flask("fabrik-frontend-otel")
 
@@ -24,6 +35,70 @@ LOAD_INTERVAL_MAX = int(os.getenv('LOAD_INTERVAL_MAX', '8'))  # maximum seconds 
 
 # Global flag to control load generator
 load_generator_running = False
+
+# Initialize OpenTelemetry
+def init_otel():
+    print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-frontend")
+
+    try:
+        # Get configuration from environment
+        dt_endpoint = os.getenv('DYNATRACE_ENDPOINT', os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'))
+        dt_token = os.getenv('DYNATRACE_API_TOKEN', '')
+
+        if not dt_endpoint or not dt_token:
+            print(f"[OTEL INIT] ERROR: Missing DYNATRACE_ENDPOINT or DYNATRACE_API_TOKEN")
+            return
+
+        # Construct proper OTLP endpoint for traces
+        if not dt_endpoint.endswith('/api/v2/otlp/v1/traces'):
+            if dt_endpoint.endswith('/api/v2/otlp'):
+                trace_endpoint = dt_endpoint + '/v1/traces'
+                metric_endpoint = dt_endpoint + '/v1/metrics'
+            else:
+                trace_endpoint = dt_endpoint + '/api/v2/otlp/v1/traces'
+                metric_endpoint = dt_endpoint + '/api/v2/otlp/v1/metrics'
+        else:
+            trace_endpoint = dt_endpoint
+            metric_endpoint = dt_endpoint.replace('/traces', '/metrics')
+
+        headers = {"Authorization": f"Api-Token {dt_token}"}
+        print(f"[OTEL INIT] Using trace endpoint: {trace_endpoint}")
+
+        # Create resource with service information
+        resource = Resource.create({
+            "service.name": "fabrik-frontend-otel",
+            "service.version": "1.0.0",
+            "service.namespace": "fabrik"
+        })
+
+        # Configure tracing with explicit headers
+        trace_exporter = OTLPSpanExporter(endpoint=trace_endpoint, headers=headers)
+        trace.set_tracer_provider(TracerProvider(resource=resource))
+        trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(trace_exporter))
+        print(f"[OTEL INIT] Trace exporter configured successfully")
+
+        # Configure metrics with explicit headers
+        metric_exporter = OTLPMetricExporter(endpoint=metric_endpoint, headers=headers)
+        metric_reader = PeriodicExportingMetricReader(exporter=metric_exporter, export_interval_millis=10000)
+        metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
+        print(f"[OTEL INIT] Metric exporter configured successfully")
+
+        print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
+
+    except Exception as e:
+        print(f"[OTEL INIT] ERROR: Failed to initialize OpenTelemetry: {str(e)}")
+        raise
+
+# Initialize OTEL
+init_otel()
+
+# Get tracer and meter
+tracer = trace.get_tracer(__name__)
+meter = metrics.get_meter(__name__)
+
+# Instrument Flask and requests
+FlaskInstrumentor().instrument_app(app)
+RequestsInstrumentor().instrument()
 
 def background_load_generator():
     """Background thread that generates continuous load to fabrik-proxy"""

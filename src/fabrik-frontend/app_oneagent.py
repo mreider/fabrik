@@ -4,7 +4,7 @@ import random
 import requests
 import logging
 import threading
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask("fabrik-frontend-oneagent")
 

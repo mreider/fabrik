@@ -225,7 +225,7 @@ def proxy_request():
     logger.info(f"Received request at /api/proxy endpoint")
     request_counter.add(1, {"endpoint": "/api/proxy"})
 
-    with tracer.start_as_current_span("proxy_request") as span:
+    with tracer.start_as_current_span("proxy_request", kind=trace.SpanKind.SERVER) as span:
         span.set_attribute("service.name", "fabrik-proxy")
         span.set_attribute("operation", "proxy_request")
         span.set_attribute("upstream.service", "fabrik-service")

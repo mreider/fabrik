@@ -128,11 +128,13 @@ external_requests_counter = meter.create_counter(
     description="Total number of external HTTP requests"
 )
 
-# Instrument Flask, Redis, MySQL, and Pika
+# Instrument Flask, Redis, MySQL, Pika, and Requests
 FlaskInstrumentor().instrument_app(app)
 RedisInstrumentor().instrument()
 MySQLInstrumentor().instrument()
 PikaInstrumentor().instrument()
+from opentelemetry.instrumentation.requests import RequestsInstrumentor
+RequestsInstrumentor().instrument()
 
 # Redis connection
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
@@ -201,7 +203,7 @@ def process_request():
 
     request_counter.add(1, {"endpoint": "/api/process"})
 
-    with tracer.start_as_current_span("process_request") as span:
+    with tracer.start_as_current_span("process_request", kind=trace.SpanKind.SERVER) as span:
         span.set_attribute("service.name", "fabrik-service")
         span.set_attribute("operation", "process_request")
 
@@ -319,7 +321,7 @@ def process_request():
 
 def perform_database_operation():
     """Perform database operations with OpenTelemetry semantic attributes"""
-    with tracer.start_as_current_span("database_operation") as span:
+    with tracer.start_as_current_span("database_operation", kind=trace.SpanKind.CLIENT) as span:
         connection = get_mysql_connection()
         if not connection:
             span.set_status(Status(StatusCode.ERROR, "Could not connect to database"))
@@ -485,7 +487,7 @@ def publish_message():
 
 def make_external_request():
     """Make external HTTP requests to httpstatus testing endpoints"""
-    with tracer.start_as_current_span("external_request") as span:
+    with tracer.start_as_current_span("external_request", kind=trace.SpanKind.CLIENT) as span:
         # List of external endpoints to call
         endpoints = [
             "https://tools-httpstatus.pickup-services.com/200",
@@ -542,7 +544,7 @@ def make_external_request():
 
 def write_to_redis():
     """Write some data to Redis"""
-    with tracer.start_as_current_span("redis_write") as span:
+    with tracer.start_as_current_span("redis_write", kind=trace.SpanKind.CLIENT) as span:
         key = f"fabrik:data:{random.randint(1, 1000)}"
         value = {
             "timestamp": time.time(),
@@ -565,7 +567,7 @@ def external_request_endpoint():
     logger.info("Received request at /api/external endpoint")
     request_counter.add(1, {"endpoint": "/api/external"})
     
-    with tracer.start_as_current_span("external_request_endpoint") as span:
+    with tracer.start_as_current_span("external_request_endpoint", kind=trace.SpanKind.SERVER) as span:
         span.set_attribute("service.name", "fabrik-service")
         span.set_attribute("operation", "external_request_endpoint")
         
@@ -594,7 +596,7 @@ def external_request_endpoint():
 @app.route('/api/redis/stats')
 def redis_stats():
     """Get Redis statistics"""
-    with tracer.start_as_current_span("redis_stats") as span:
+    with tracer.start_as_current_span("redis_stats", kind=trace.SpanKind.SERVER) as span:
         try:
             info = redis_client.info()
             keys_count = redis_client.dbsize()
@@ -629,7 +631,7 @@ def redis_stats():
 @app.route('/api/redis/cleanup')
 def redis_cleanup():
     """Clean up Redis to avoid disk growth"""
-    with tracer.start_as_current_span("redis_cleanup") as span:
+    with tracer.start_as_current_span("redis_cleanup", kind=trace.SpanKind.SERVER) as span:
         try:
             # Get all fabrik keys
             keys = redis_client.keys("fabrik:*")
