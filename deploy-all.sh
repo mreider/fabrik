@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Deploying All Fabrik Permutations for Dynatrace Topology Testing..."
+echo "Deploying Simplified Fabrik - OneAgent vs OpenTelemetry Comparison..."
 
 # Create namespaces
 echo "Creating namespaces..."
@@ -28,86 +28,73 @@ echo "Applying DynaKube custom resource..."
 kubectl apply -f k8s/dynakube.yaml -n dynatrace
 # --- END Dynatrace Operator Deployment ---
 
-# Create Dynatrace secrets in required namespaces
-echo "Creating Dynatrace secrets..."
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel-enriched
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel-standalone
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel-collector
+# Create Dynatrace secret in OTel namespace
+echo "Creating Dynatrace secret..."
+kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel
 
-# Deploy OpenTelemetry Collector first
-echo "Deploying OpenTelemetry Collector..."
-kubectl apply -f k8s/fabrik-otel-collector/collector-config.yaml
-kubectl apply -f k8s/fabrik-otel-collector/collector.yaml
-
-# Wait for collector to be ready
-echo "Waiting for OpenTelemetry Collector to be ready..."
-kubectl wait --for=condition=available --timeout=300s deployment/otel-collector -n fabrik-otel-collector
-
-# Deploy Redis instances
-echo "Deploying Redis instances..."
+# Deploy infrastructure (Redis, MySQL, RabbitMQ, Nginx)
+echo "Deploying infrastructure (Redis, MySQL, RabbitMQ, Nginx)..."
 kubectl apply -f k8s/fabrik-oneagent/redis.yaml
-kubectl apply -f k8s/fabrik-otel-enriched/redis.yaml
-kubectl apply -f k8s/fabrik-otel-standalone/redis.yaml
-kubectl apply -f k8s/fabrik-otel-collector/redis.yaml
+kubectl apply -f k8s/fabrik-oneagent/mysql.yaml
+kubectl apply -f k8s/fabrik-oneagent/rabbitmq.yaml
+kubectl apply -f k8s/fabrik-oneagent/nginx.yaml
+kubectl apply -f k8s/fabrik-otel/redis.yaml
+kubectl apply -f k8s/fabrik-otel/mysql.yaml
+kubectl apply -f k8s/fabrik-otel/rabbitmq.yaml
+kubectl apply -f k8s/fabrik-otel/nginx.yaml
 
-# Wait for Redis to be ready
-echo "Waiting for Redis to be ready..."
-sleep 15
+# Wait for infrastructure to be ready
+echo "Waiting for infrastructure to be ready..."
+sleep 30
 
-# Deploy all application permutations
-echo "Deploying all application permutations..."
+# Deploy both instrumentation approaches
+echo "Deploying applications for instrumentation comparison..."
 
-echo "  - Deploying All-OneAgent (fabrik-oneagent)..."
+echo "  - Deploying OneAgent instrumentation (fabrik-oneagent)..."
 kubectl apply -f k8s/fabrik-oneagent/fabrik-service.yaml
 kubectl apply -f k8s/fabrik-oneagent/fabrik-proxy.yaml
 kubectl apply -f k8s/fabrik-oneagent/fabrik-frontend.yaml
 
-echo "  - Deploying All-OpenTelemetry with Enrichment (fabrik-otel-enriched)..."
-kubectl apply -f k8s/fabrik-otel-enriched/fabrik-service.yaml
-kubectl apply -f k8s/fabrik-otel-enriched/fabrik-proxy.yaml
-kubectl apply -f k8s/fabrik-otel-enriched/fabrik-frontend.yaml
-
-echo "  - Deploying All-OpenTelemetry Standalone (fabrik-otel-standalone)..."
-kubectl apply -f k8s/fabrik-otel-standalone/fabrik-service.yaml
-kubectl apply -f k8s/fabrik-otel-standalone/fabrik-proxy.yaml
-kubectl apply -f k8s/fabrik-otel-standalone/fabrik-frontend.yaml
-
-echo "  - Deploying OpenTelemetry with Collector (fabrik-otel-collector)..."
-kubectl apply -f k8s/fabrik-otel-collector/fabrik-service.yaml
-kubectl apply -f k8s/fabrik-otel-collector/fabrik-proxy.yaml
-kubectl apply -f k8s/fabrik-otel-collector/fabrik-frontend.yaml
+echo "  - Deploying OpenTelemetry instrumentation (fabrik-otel)..."
+kubectl apply -f k8s/fabrik-otel/fabrik-service.yaml
+kubectl apply -f k8s/fabrik-otel/fabrik-proxy.yaml
+kubectl apply -f k8s/fabrik-otel/fabrik-frontend.yaml
 
 # Restart deployments to ensure they pick up any configuration changes
 echo "Restarting deployments to pick up configuration changes..."
 kubectl rollout restart deployment -n fabrik-oneagent
-kubectl rollout restart deployment -n fabrik-otel-enriched
-kubectl rollout restart deployment -n fabrik-otel-standalone
-kubectl rollout restart deployment -n fabrik-otel-collector
+kubectl rollout restart deployment -n fabrik-otel
 
 # Wait for rollouts to complete
 echo "Waiting for rollouts to complete..."
 kubectl rollout status deployment -n fabrik-oneagent --timeout=300s
-kubectl rollout status deployment -n fabrik-otel-enriched --timeout=300s
-kubectl rollout status deployment -n fabrik-otel-standalone --timeout=300s
-kubectl rollout status deployment -n fabrik-otel-collector --timeout=300s
+kubectl rollout status deployment -n fabrik-otel --timeout=300s
 
 echo "All deployments completed successfully!"
 echo ""
-echo "Available namespaces:"
-echo "  - fabrik-oneagent: All services with OneAgent instrumentation"
-echo "  - fabrik-otel-enriched: All services with OpenTelemetry + Dynatrace enrichment"
-echo "  - fabrik-otel-standalone: All services with OpenTelemetry, no enrichment"
-echo "  - fabrik-otel-collector: All services with OpenTelemetry via Collector + K8s enrichment"
+echo "Available namespaces for instrumentation comparison:"
+echo "  - fabrik-oneagent: Pure OneAgent instrumentation (no OpenTelemetry code)"
+echo "  - fabrik-otel: Pure OpenTelemetry instrumentation with Dynatrace enrichment"
 echo ""
 echo "To check the status of all deployments, run:"
-echo "kubectl get pods -n fabrik-oneagent -n fabrik-otel-enriched -n fabrik-otel-standalone -n fabrik-otel-collector"
+echo "kubectl get pods -n fabrik-oneagent -n fabrik-otel"
 echo ""
-echo "Test commands for each permutation:"
-echo "# OneAgent:"
+echo "Test commands for each instrumentation approach:"
+echo ""
+echo "# OneAgent (pure Dynatrace OneAgent, no OTel):"
+echo "# Direct service access:"
 echo "kubectl port-forward -n fabrik-oneagent svc/fabrik-frontend 8080:8080"
-echo "# OpenTelemetry Enriched:"
-echo "kubectl port-forward -n fabrik-otel-enriched svc/fabrik-frontend 8081:8080"
-echo "# OpenTelemetry Standalone:"
-echo "kubectl port-forward -n fabrik-otel-standalone svc/fabrik-frontend 8082:8080"
-echo "# OpenTelemetry Collector:"
-echo "kubectl port-forward -n fabrik-otel-collector svc/fabrik-frontend 8083:8080"
+echo "curl http://localhost:8080/api/call-proxy"
+echo "# Via nginx proxy:"
+echo "kubectl port-forward -n fabrik-oneagent svc/nginx 8090:80"
+echo "curl http://localhost:8090/api/proxy"
+echo "curl http://localhost:8090/nginx-health"
+echo ""
+echo "# OpenTelemetry (with Dynatrace enrichment):"
+echo "# Direct service access:"
+echo "kubectl port-forward -n fabrik-otel svc/fabrik-frontend 8081:8080"
+echo "curl http://localhost:8081/api/call-proxy"
+echo "# Via nginx proxy (with OTel instrumentation):"
+echo "kubectl port-forward -n fabrik-otel svc/nginx 8091:80"
+echo "curl http://localhost:8091/api/proxy"
+echo "curl http://localhost:8091/nginx-health"

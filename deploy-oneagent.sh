@@ -28,13 +28,16 @@ echo "Applying DynaKube custom resource..."
 kubectl apply -f k8s/dynakube.yaml -n dynatrace
 # --- END Dynatrace Operator Deployment ---
 
-# Deploy Redis
-echo "Deploying Redis..."
+# Deploy infrastructure
+echo "Deploying infrastructure (Redis, MySQL, RabbitMQ, Nginx)..."
 kubectl apply -f k8s/fabrik-oneagent/redis.yaml
+kubectl apply -f k8s/fabrik-oneagent/mysql.yaml
+kubectl apply -f k8s/fabrik-oneagent/rabbitmq.yaml
+kubectl apply -f k8s/fabrik-oneagent/nginx.yaml
 
-# Wait for Redis to be ready
-echo "Waiting for Redis to be ready..."
-sleep 15
+# Wait for infrastructure to be ready
+echo "Waiting for infrastructure to be ready..."
+sleep 30
 
 # Deploy application components
 echo "Deploying applications to fabrik-oneagent namespace..."

@@ -11,29 +11,9 @@ metadata:
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fabrik-otel-enriched
+  name: fabrik-otel
   labels:
-    name: fabrik-otel-enriched
+    name: fabrik-otel
     instrumentation: opentelemetry
     dynatrace.com/inject: "false"
     dynatrace.com/enrich: "true"
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: fabrik-otel-standalone
-  labels:
-    name: fabrik-otel-standalone
-    instrumentation: opentelemetry
-    dynatrace.com/inject: "false"
-    dynatrace.com/enrich: "false"
----
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: fabrik-otel-collector
-  labels:
-    name: fabrik-otel-collector
-    instrumentation: opentelemetry-collector
-    dynatrace.com/inject: "false"
-    dynatrace.com/enrich: "false"

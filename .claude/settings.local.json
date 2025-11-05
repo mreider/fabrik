@@ -9,7 +9,11 @@
       "Bash(kubectl apply:*)",
       "Bash(kubectl rollout status:*)",
       "Bash(docker build:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(curl:*)",
+      "Bash(kubectl get:*)",
+      "Bash(kubectl delete:*)"
     ],
     "deny": [],
     "ask": []

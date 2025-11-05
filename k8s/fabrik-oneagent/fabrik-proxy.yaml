@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: fabrik-proxy
-        image: ghcr.io/mreider/fabrik-proxy:latest
+        image: ghcr.io/mreider/fabrik-proxy-oneagent:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -28,6 +28,12 @@ spec:
           value: "fabrik-proxy-oneagent"
         - name: FABRIK_SERVICE_URL
           value: "http://fabrik-service.fabrik-oneagent:8080"
+        - name: RABBITMQ_HOST
+          value: "rabbitmq.fabrik-oneagent"
+        - name: RABBITMQ_USER
+          value: "fabrik"
+        - name: RABBITMQ_PASSWORD
+          value: "fabrik123"
         # Disable OpenTelemetry for OneAgent-only setup
         - name: OTEL_SDK_DISABLED
           value: "true"

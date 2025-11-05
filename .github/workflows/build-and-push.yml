@@ -34,23 +34,49 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push fabrik-proxy image
+      # Build OTel-instrumented images (default)
+      - name: Build and push fabrik-proxy-otel image
         uses: docker/build-push-action@v4
         with:
           context: ./src/fabrik-proxy
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-proxy:latest
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-proxy-otel:latest
 
-      - name: Build and push fabrik-service image
+      - name: Build and push fabrik-service-otel image
         uses: docker/build-push-action@v4
         with:
           context: ./src/fabrik-service
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-service:latest
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-service-otel:latest
 
-      - name: Build and push fabrik-frontend image
+      - name: Build and push fabrik-frontend-otel image
         uses: docker/build-push-action@v4
         with:
           context: ./src/fabrik-frontend
           push: true
-          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-frontend:latest
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-frontend-otel:latest
+
+      # Build OneAgent-only images
+      - name: Build and push fabrik-proxy-oneagent image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/fabrik-proxy
+          file: ./src/fabrik-proxy/Dockerfile.oneagent
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-proxy-oneagent:latest
+
+      - name: Build and push fabrik-service-oneagent image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/fabrik-service
+          file: ./src/fabrik-service/Dockerfile.oneagent
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-service-oneagent:latest
+
+      - name: Build and push fabrik-frontend-oneagent image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/fabrik-frontend
+          file: ./src/fabrik-frontend/Dockerfile.oneagent
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-frontend-oneagent:latest

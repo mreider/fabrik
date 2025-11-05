@@ -5,6 +5,8 @@ import json
 import logging
 import requests
 import redis
+import mysql.connector
+import pika
 from flask import Flask, jsonify
 from opentelemetry import trace, metrics
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -18,6 +20,10 @@ from opentelemetry.sdk._logs import LoggerProvider, LoggingHandler
 from opentelemetry.sdk._logs.export import BatchLogRecordProcessor
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.redis import RedisInstrumentor
+from opentelemetry.instrumentation.mysql import MySQLInstrumentor
+from opentelemetry.instrumentation.pika import PikaInstrumentor
+from opentelemetry.semconv.trace import SpanAttributes
+from opentelemetry.trace import Status, StatusCode
 
 app = Flask(__name__)
 
@@ -26,6 +32,13 @@ DYNATRACE_ENDPOINT = os.getenv('DYNATRACE_ENDPOINT', 'http://localhost:4318')
 DYNATRACE_API_TOKEN = os.getenv('DYNATRACE_API_TOKEN', '')
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
+MYSQL_HOST = os.getenv('MYSQL_HOST', 'mysql')
+MYSQL_USER = os.getenv('MYSQL_USER', 'fabrik')
+MYSQL_PASSWORD = os.getenv('MYSQL_PASSWORD', 'fabrik123')
+MYSQL_DATABASE = os.getenv('MYSQL_DATABASE', 'fabrik')
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
+RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'fabrik')
+RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'fabrik123')
 
 # Initialize OpenTelemetry
 def init_otel():
@@ -133,12 +146,40 @@ external_requests_counter = meter.create_counter(
     description="Total number of external HTTP requests"
 )
 
-# Instrument Flask and Redis
+# Instrument Flask, Redis, MySQL, and Pika
 FlaskInstrumentor().instrument_app(app)
 RedisInstrumentor().instrument()
+MySQLInstrumentor().instrument()
+PikaInstrumentor().instrument()
 
 # Redis connection
 redis_client = redis.Redis(host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
+
+def get_mysql_connection():
+    """Get MySQL database connection with retry logic"""
+    try:
+        connection = mysql.connector.connect(
+            host=MYSQL_HOST,
+            user=MYSQL_USER,
+            password=MYSQL_PASSWORD,
+            database=MYSQL_DATABASE,
+            autocommit=True
+        )
+        return connection
+    except Exception as e:
+        logger.error(f"Failed to connect to MySQL: {str(e)}")
+        return None
+
+def get_rabbitmq_connection():
+    """Get RabbitMQ connection"""
+    try:
+        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
+        parameters = pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials)
+        connection = pika.BlockingConnection(parameters)
+        return connection
+    except Exception as e:
+        logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+        return None
 
 # Logger
 logger = logging.getLogger(__name__)
@@ -187,10 +228,36 @@ def process_request():
                 logger.error(f"Redis write failed: {str(e)}")
                 span.set_attribute("redis.error", True)
                 span.set_attribute("redis.error.message", str(e))
-        
-        # Make external HTTP request occasionally (40% chance)
-        external_request_data = None
+
+        # Database operation occasionally (50% chance)
+        db_data = None
+        if random.random() < 0.5:
+            try:
+                db_data = perform_database_operation()
+                span.set_attribute("db.operation", True)
+                span.set_attribute("db.operation.type", db_data["operation"])
+                span.set_attribute("db.collection.name", db_data["table"])
+            except Exception as e:
+                logger.error(f"Database operation failed: {str(e)}")
+                span.set_attribute("db.error", True)
+                span.set_attribute("db.error.message", str(e))
+
+        # Publish message occasionally (40% chance)
+        message_data = None
         if random.random() < 0.4:
+            try:
+                message_data = publish_message()
+                span.set_attribute("messaging.operation", True)
+                span.set_attribute("messaging.destination.name", message_data["queue"])
+                span.set_attribute("messaging.operation.type", "publish")
+            except Exception as e:
+                logger.error(f"Message publishing failed: {str(e)}")
+                span.set_attribute("messaging.error", True)
+                span.set_attribute("messaging.error.message", str(e))
+
+        # Make external HTTP request occasionally (30% chance)
+        external_request_data = None
+        if random.random() < 0.3:
             try:
                 external_request_data = make_external_request()
                 span.set_attribute("external.request", True)
@@ -212,12 +279,184 @@ def process_request():
         
         if redis_data:
             response_data["redis_operation"] = redis_data
-            
+
+        if db_data:
+            response_data["database_operation"] = db_data
+
+        if message_data:
+            response_data["message_published"] = message_data
+
         if external_request_data:
             response_data["external_request"] = external_request_data
         
         logger.info(f"Successfully processed request {response_data['request_id']}")
         return jsonify(response_data)
+
+def perform_database_operation():
+    """Perform database operations with OpenTelemetry semantic attributes"""
+    with tracer.start_as_current_span("database_operation") as span:
+        connection = get_mysql_connection()
+        if not connection:
+            span.set_status(Status(StatusCode.ERROR, "Could not connect to database"))
+            raise Exception("Could not connect to database")
+
+        try:
+            cursor = connection.cursor()
+
+            # Set database semantic attributes
+            span.set_attribute(SpanAttributes.DB_SYSTEM, "mysql")
+            span.set_attribute(SpanAttributes.DB_NAME, MYSQL_DATABASE)
+            span.set_attribute(SpanAttributes.SERVER_ADDRESS, MYSQL_HOST)
+            span.set_attribute(SpanAttributes.SERVER_PORT, 3306)
+            span.set_attribute(SpanAttributes.DB_USER, MYSQL_USER)
+
+            # Random chance of database failure (10%)
+            if random.random() < 0.1:
+                cursor.close()
+                connection.close()
+                span.set_status(Status(StatusCode.ERROR, "Simulated database query failure"))
+                raise Exception("Simulated database query failure")
+
+            # Random operation
+            operation = random.choice(['select_users', 'select_orders', 'insert_order'])
+            span.set_attribute(SpanAttributes.DB_OPERATION, operation)
+
+            if operation == 'select_users':
+                sql_query = "SELECT id, username, email FROM users ORDER BY RAND() LIMIT 5"
+                span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
+                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "users")
+
+                cursor.execute(sql_query)
+                results = cursor.fetchall()
+                logger.info(f"Database: Selected {len(results)} users")
+
+                span.set_attribute("db.rows_affected", len(results))
+                span.set_status(Status(StatusCode.OK))
+
+                return {
+                    "operation": "select_users",
+                    "count": len(results),
+                    "table": "users"
+                }
+
+            elif operation == 'select_orders':
+                sql_query = """
+                    SELECT o.id, o.product_name, o.quantity, u.username
+                    FROM orders o
+                    JOIN users u ON o.user_id = u.id
+                    ORDER BY o.created_at DESC LIMIT 10
+                """
+                span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
+                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "orders")
+
+                cursor.execute(sql_query)
+                results = cursor.fetchall()
+                logger.info(f"Database: Selected {len(results)} orders")
+
+                span.set_attribute("db.rows_affected", len(results))
+                span.set_status(Status(StatusCode.OK))
+
+                return {
+                    "operation": "select_orders",
+                    "count": len(results),
+                    "table": "orders"
+                }
+
+            elif operation == 'insert_order':
+                user_id = random.randint(1, 3)
+                products = ['Widget A', 'Widget B', 'Widget C', 'Gadget X', 'Gadget Y']
+                product = random.choice(products)
+                quantity = random.randint(1, 5)
+                amount = round(random.uniform(10.0, 100.0), 2)
+
+                sql_query = """
+                    INSERT INTO orders (user_id, product_name, quantity, total_amount)
+                    VALUES (%s, %s, %s, %s)
+                """
+                span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
+                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "orders")
+
+                cursor.execute(sql_query, (user_id, product, quantity, amount))
+                order_id = cursor.lastrowid
+                logger.info(f"Database: Inserted order {order_id}")
+
+                span.set_attribute("db.rows_affected", 1)
+                span.set_attribute("db.record_id", order_id)
+                span.set_status(Status(StatusCode.OK))
+
+                return {
+                    "operation": "insert_order",
+                    "order_id": order_id,
+                    "product": product,
+                    "table": "orders"
+                }
+
+        finally:
+            cursor.close()
+            connection.close()
+
+def publish_message():
+    """Publish message to RabbitMQ with OpenTelemetry semantic attributes"""
+    with tracer.start_as_current_span("message_publish", kind=trace.SpanKind.PRODUCER) as span:
+        connection = get_rabbitmq_connection()
+        if not connection:
+            span.set_status(Status(StatusCode.ERROR, "Could not connect to RabbitMQ"))
+            raise Exception("Could not connect to RabbitMQ")
+
+        try:
+            channel = connection.channel()
+
+            # Random chance of messaging failure (8%)
+            if random.random() < 0.08:
+                channel.close()
+                connection.close()
+                span.set_status(Status(StatusCode.ERROR, "Simulated message publishing failure"))
+                raise Exception("Simulated message publishing failure")
+
+            # Declare queues
+            queue_name = random.choice(['order_processing', 'user_notifications', 'inventory_updates'])
+            channel.queue_declare(queue=queue_name, durable=True)
+
+            # Set messaging semantic attributes
+            span.set_attribute("messaging.system", "rabbitmq")
+            span.set_attribute("messaging.destination.name", queue_name)
+            span.set_attribute("messaging.destination.kind", "queue")
+            span.set_attribute("messaging.operation.type", "publish")
+            span.set_attribute("server.address", RABBITMQ_HOST)
+            span.set_attribute("server.port", 5672)
+
+            # Create message
+            message_data = {
+                "id": f"msg_{random.randint(1000, 9999)}",
+                "timestamp": time.time(),
+                "type": random.choice(['order_created', 'user_updated', 'inventory_changed']),
+                "data": {"demo": "data", "value": random.randint(1, 100)}
+            }
+
+            # Set message attributes
+            span.set_attribute("messaging.message.id", message_data["id"])
+            span.set_attribute("messaging.message.payload_size_bytes", len(json.dumps(message_data)))
+
+            # Publish message
+            channel.basic_publish(
+                exchange='',
+                routing_key=queue_name,
+                body=json.dumps(message_data),
+                properties=pika.BasicProperties(delivery_mode=2)  # Make message persistent
+            )
+
+            logger.info(f"Message published to queue {queue_name}: {message_data['id']}")
+            span.set_status(Status(StatusCode.OK))
+
+            return {
+                "queue": queue_name,
+                "message_id": message_data["id"],
+                "type": message_data["type"]
+            }
+
+        finally:
+            channel.close()
+            connection.close()
 
 def make_external_request():
     """Make external HTTP requests to httpstatus testing endpoints"""

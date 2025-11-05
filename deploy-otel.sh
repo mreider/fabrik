@@ -1,6 +1,8 @@
 #!/bin/bash
 set -e
 
+echo "Deploying Fabrik OpenTelemetry Instrumentation with Dynatrace Enrichment..."
+
 # Create namespaces
 echo "Creating namespaces..."
 kubectl apply -f k8s/namespaces.yaml
@@ -26,41 +28,41 @@ echo "Applying DynaKube custom resource..."
 kubectl apply -f k8s/dynakube.yaml -n dynatrace
 # --- END Dynatrace Operator Deployment ---
 
-# Create Dynatrace secret in fabrik namespace
+# Create Dynatrace secret in fabrik-otel namespace
 echo "Creating Dynatrace secret..."
-kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik
+kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel
 
-# Deploy Redis
-echo "Deploying Redis..."
-kubectl apply -f k8s/redis.yaml
+# Deploy infrastructure
+echo "Deploying infrastructure (Redis, MySQL, RabbitMQ, Nginx)..."
+kubectl apply -f k8s/fabrik-otel/redis.yaml
+kubectl apply -f k8s/fabrik-otel/mysql.yaml
+kubectl apply -f k8s/fabrik-otel/rabbitmq.yaml
+kubectl apply -f k8s/fabrik-otel/nginx.yaml
 
-# Wait for Redis to be ready
-echo "Waiting for Redis to be ready..."
-sleep 15
+# Wait for infrastructure to be ready
+echo "Waiting for infrastructure to be ready..."
+sleep 30
 
 # Deploy application components
-echo "Deploying applications to fabrik namespace..."
-kubectl apply -f k8s/fabrik-service.yaml
-kubectl apply -f k8s/fabrik-proxy.yaml
-kubectl apply -f k8s/fabrik-frontend.yaml
+echo "Deploying applications to fabrik-otel namespace..."
+kubectl apply -f k8s/fabrik-otel/fabrik-service.yaml
+kubectl apply -f k8s/fabrik-otel/fabrik-proxy.yaml
+kubectl apply -f k8s/fabrik-otel/fabrik-frontend.yaml
 
-echo "Deployment completed successfully!"
+# Restart deployments to ensure they pick up any configuration changes
+echo "Restarting deployments to pick up configuration changes..."
+kubectl rollout restart deployment -n fabrik-otel
+
+# Wait for rollouts to complete
+echo "Waiting for rollouts to complete..."
+kubectl rollout status deployment -n fabrik-otel --timeout=300s
+
+echo "OpenTelemetry deployment completed successfully!"
 echo "To check the status of the deployments, run:"
-echo "kubectl get pods -n fabrik"
+echo "kubectl get pods -n fabrik-otel"
 echo ""
 echo "To test the application:"
-echo "kubectl port-forward -n fabrik svc/fabrik-frontend 8080:8080"
+echo "kubectl port-forward -n fabrik-otel svc/fabrik-frontend 8080:8080"
 echo "curl http://localhost:8080/api/call-proxy"
 echo "curl http://localhost:8080/api/load"
 echo "curl http://localhost:8080/health"
-echo ""
-echo "To test fabrik-proxy directly:"
-echo "kubectl port-forward -n fabrik svc/fabrik-proxy 8081:8080"
-echo "curl http://localhost:8081/api/proxy"
-echo "curl http://localhost:8081/health"
-echo ""
-echo "To test fabrik-service directly:"
-echo "kubectl port-forward -n fabrik svc/fabrik-service 8082:8080"
-echo "curl http://localhost:8082/api/process"
-echo "curl http://localhost:8082/api/redis/stats"
-echo "curl http://localhost:8082/api/redis/cleanup"

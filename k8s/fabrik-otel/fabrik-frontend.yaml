@@ -2,7 +2,7 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: fabrik-frontend
-  namespace: fabrik-otel-standalone
+  namespace: fabrik-otel
   labels:
     app: fabrik-frontend
 spec:
@@ -19,15 +19,15 @@ spec:
     spec:
       containers:
       - name: fabrik-frontend
-        image: ghcr.io/mreider/fabrik-frontend:latest
+        image: ghcr.io/mreider/fabrik-frontend-otel:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
         env:
         - name: FABRIK_SERVICE_URL
-          value: "http://fabrik-service.fabrik-otel-standalone:8080"
+          value: "http://fabrik-service.fabrik-otel:8080"
         - name: FABRIK_PROXY_URL
-          value: "http://fabrik-proxy.fabrik-otel-standalone:8080"
+          value: "http://fabrik-proxy.fabrik-otel:8080"
         - name: LOAD_GENERATOR_ENABLED
           value: "true"
         - name: LOAD_INTERVAL_MIN
@@ -44,22 +44,17 @@ spec:
             secretKeyRef:
               name: dynatrace-secret
               key: api-token
-        # OpenTelemetry configuration without enrichment (direct to Dynatrace)
+        # OpenTelemetry configuration with enrichment
         - name: OTEL_SDK_DISABLED
           value: "false"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "http/protobuf"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: endpoint
-        - name: OTEL_EXPORTER_OTLP_HEADERS
-          value: "Authorization=Api-Token $(DYNATRACE_API_TOKEN)"
+          value: "http://dynatrace-activegate.dynatrace:14499/otlp"
         - name: OTEL_SERVICE_NAME
-          value: "fabrik-frontend-otel-standalone"
+          value: "fabrik-frontend-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-frontend-otel-standalone,service.version=1.0.0"
+          value: "service.name=fabrik-frontend-otel,service.version=1.0.0"
         resources:
           limits:
             cpu: "300m"
@@ -72,7 +67,7 @@ apiVersion: v1
 kind: Service
 metadata:
   name: fabrik-frontend
-  namespace: fabrik-otel-standalone
+  namespace: fabrik-otel
 spec:
   selector:
     app: fabrik-frontend

@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: fabrik-service
-        image: ghcr.io/mreider/fabrik-service:latest
+        image: ghcr.io/mreider/fabrik-service-oneagent:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -28,6 +28,20 @@ spec:
           value: "redis.fabrik-oneagent"
         - name: REDIS_PORT
           value: "6379"
+        - name: MYSQL_HOST
+          value: "mysql.fabrik-oneagent"
+        - name: MYSQL_USER
+          value: "fabrik"
+        - name: MYSQL_PASSWORD
+          value: "fabrik123"
+        - name: MYSQL_DATABASE
+          value: "fabrik"
+        - name: RABBITMQ_HOST
+          value: "rabbitmq.fabrik-oneagent"
+        - name: RABBITMQ_USER
+          value: "fabrik"
+        - name: RABBITMQ_PASSWORD
+          value: "fabrik123"
         - name: DT_SERVICE_NAME
           value: "fabrik-service-oneagent"
         # Disable OpenTelemetry for OneAgent-only setup

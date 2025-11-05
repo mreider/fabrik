@@ -1,6 +1,10 @@
 import os
 import requests
 import logging
+import json
+import random
+import threading
+import pika
 from flask import Flask, jsonify
 from opentelemetry import trace, metrics
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
@@ -11,6 +15,8 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.instrumentation.pika import PikaInstrumentor
+from opentelemetry.trace import Status, StatusCode
 
 app = Flask(__name__)
 
@@ -25,6 +31,12 @@ logger = logging.getLogger(__name__)
 FABRIK_SERVICE_URL = os.getenv('FABRIK_SERVICE_URL', 'http://fabrik-service:8080')
 DYNATRACE_ENDPOINT = os.getenv('DYNATRACE_ENDPOINT', 'http://localhost:4318')
 DYNATRACE_API_TOKEN = os.getenv('DYNATRACE_API_TOKEN', '')
+RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
+RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'fabrik')
+RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'fabrik123')
+
+# Global flag for message consumer
+consumer_running = False
 
 # Initialize OpenTelemetry
 def init_otel():
@@ -94,16 +106,110 @@ request_counter = meter.create_counter(
     description="Total number of requests processed by proxy"
 )
 
-# Instrument Flask and requests
+# Instrument Flask, requests, and Pika
 FlaskInstrumentor().instrument_app(app)
 RequestsInstrumentor().instrument()
+PikaInstrumentor().instrument()
+
+def get_rabbitmq_connection():
+    """Get RabbitMQ connection"""
+    try:
+        credentials = pika.PlainCredentials(RABBITMQ_USER, RABBITMQ_PASSWORD)
+        parameters = pika.ConnectionParameters(host=RABBITMQ_HOST, credentials=credentials)
+        connection = pika.BlockingConnection(parameters)
+        return connection
+    except Exception as e:
+        logger.error(f"Failed to connect to RabbitMQ: {str(e)}")
+        return None
+
+def process_message(ch, method, properties, body):
+    """Process received message with OpenTelemetry semantic attributes"""
+    with tracer.start_as_current_span("message_process", kind=trace.SpanKind.CONSUMER) as span:
+        try:
+            # Set messaging semantic attributes
+            span.set_attribute("messaging.system", "rabbitmq")
+            span.set_attribute("messaging.destination.name", method.routing_key)
+            span.set_attribute("messaging.destination.kind", "queue")
+            span.set_attribute("messaging.operation.type", "process")
+            span.set_attribute("messaging.source.kind", "queue")
+            span.set_attribute("server.address", RABBITMQ_HOST)
+            span.set_attribute("server.port", 5672)
+
+            # Random chance of message processing failure (5%)
+            if random.random() < 0.05:
+                logger.error("Simulated message processing failure")
+                span.set_status(Status(StatusCode.ERROR, "Simulated message processing failure"))
+                ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+                return
+
+            message_data = json.loads(body)
+            span.set_attribute("messaging.message.id", message_data.get('id', 'unknown'))
+            span.set_attribute("messaging.message.payload_size_bytes", len(body))
+
+            logger.info(f"Processing message: {message_data.get('id', 'unknown')} from queue {method.routing_key}")
+
+            # Simulate processing time
+            import time
+            processing_time = random.uniform(0.1, 0.5)
+            time.sleep(processing_time)
+            span.set_attribute("messaging.processing_time_ms", processing_time * 1000)
+
+            # Acknowledge message
+            ch.basic_ack(delivery_tag=method.delivery_tag)
+            span.set_status(Status(StatusCode.OK))
+            logger.info(f"Message processed successfully: {message_data.get('id', 'unknown')}")
+
+        except Exception as e:
+            logger.error(f"Error processing message: {str(e)}")
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            ch.basic_nack(delivery_tag=method.delivery_tag, requeue=True)
+
+def start_message_consumer():
+    """Start consuming messages from RabbitMQ queues"""
+    global consumer_running
+    consumer_running = True
+
+    logger.info("Starting message consumer...")
+
+    # Wait a bit for RabbitMQ to be ready
+    import time
+    time.sleep(10)
+
+    while consumer_running:
+        try:
+            connection = get_rabbitmq_connection()
+            if not connection:
+                logger.error("Could not connect to RabbitMQ, retrying in 10 seconds...")
+                time.sleep(10)
+                continue
+
+            channel = connection.channel()
+
+            # Declare queues to consume from
+            queues = ['order_processing', 'user_notifications', 'inventory_updates']
+            for queue_name in queues:
+                channel.queue_declare(queue=queue_name, durable=True)
+                channel.basic_consume(queue=queue_name, on_message_callback=process_message)
+
+            logger.info("Message consumer started, waiting for messages...")
+            channel.start_consuming()
+
+        except Exception as e:
+            logger.error(f"Error in message consumer: {str(e)}")
+            time.sleep(5)
+        finally:
+            try:
+                connection.close()
+            except:
+                pass
 
 @app.route('/health')
 def health():
     return jsonify({
         "status": "healthy",
         "service": "fabrik-proxy",
-        "instrumentation": "opentelemetry"
+        "instrumentation": "opentelemetry",
+        "message_consumer_running": consumer_running
     })
 
 @app.route('/api/proxy')
@@ -187,5 +293,10 @@ if __name__ == '__main__':
     # Check fabrik-service health
     check_fabrik_service_health()
 
-    logger.info("fabrik-proxy is ready to receive requests")
+    # Start message consumer in background
+    logger.info("Starting message consumer in background thread")
+    consumer_thread = threading.Thread(target=start_message_consumer, daemon=True)
+    consumer_thread.start()
+
+    logger.info("fabrik-proxy is ready to receive requests and process messages")
     app.run(host='0.0.0.0', port=8080, debug=False)
