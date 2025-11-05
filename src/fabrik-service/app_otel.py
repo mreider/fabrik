@@ -50,9 +50,10 @@ def init_otel():
     
     # Create resource with service information
     resource = Resource.create({
-        "service.name": "fabrik-service",
+        "service.name": "fabrik-service-otel",
         "service.version": "1.0.0",
-        "service.namespace": "fabrik"
+        "service.namespace": "fabrik",
+        "service.instance.id": os.getenv('HOSTNAME', 'unknown')
     })
     
     try:
@@ -202,8 +203,12 @@ def process_request():
     request_counter.add(1, {"endpoint": "/api/process"})
 
     with tracer.start_as_current_span("process_request", kind=trace.SpanKind.SERVER) as span:
-        span.set_attribute("service.name", "fabrik-service")
+        span.set_attribute("service.name", "fabrik-service-otel")
         span.set_attribute("operation", "process_request")
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.route", "/api/process")
+        span.set_attribute("http.scheme", request.scheme)
+        span.set_attribute("http.host", request.host)
 
         # Add client and proxy info to span
         if client_info:
@@ -566,8 +571,12 @@ def external_request_endpoint():
     request_counter.add(1, {"endpoint": "/api/external"})
     
     with tracer.start_as_current_span("external_request_endpoint", kind=trace.SpanKind.SERVER) as span:
-        span.set_attribute("service.name", "fabrik-service")
+        span.set_attribute("service.name", "fabrik-service-otel")
         span.set_attribute("operation", "external_request_endpoint")
+        span.set_attribute("http.method", "GET")
+        span.set_attribute("http.route", "/api/external")
+        span.set_attribute("http.scheme", request.scheme)
+        span.set_attribute("http.host", request.host)
         
         try:
             external_request_data = make_external_request()

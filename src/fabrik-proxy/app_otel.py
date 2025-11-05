@@ -17,6 +17,7 @@ from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.instrumentation.pika import PikaInstrumentor
+from opentelemetry.propagate import inject
 from opentelemetry.trace import Status, StatusCode
 
 app = Flask("fabrik-proxy-otel")
@@ -77,9 +78,10 @@ def init_otel():
 
         # Create resource with service information
         resource = Resource.create({
-            "service.name": "fabrik-proxy",
+            "service.name": "fabrik-proxy-otel",
             "service.version": "1.0.0",
-            "service.namespace": "fabrik"
+            "service.namespace": "fabrik",
+            "service.instance.id": os.getenv('HOSTNAME', 'unknown')
         })
 
         # Configure tracing with explicit headers
@@ -226,9 +228,13 @@ def proxy_request():
     request_counter.add(1, {"endpoint": "/api/proxy"})
 
     with tracer.start_as_current_span("proxy_request", kind=trace.SpanKind.SERVER) as span:
-        span.set_attribute("service.name", "fabrik-proxy")
+        span.set_attribute("service.name", "fabrik-proxy-otel")
         span.set_attribute("operation", "proxy_request")
-        span.set_attribute("upstream.service", "fabrik-service")
+        span.set_attribute("upstream.service", "fabrik-service-otel")
+        span.set_attribute("http.method", request.method)
+        span.set_attribute("http.route", "/api/proxy")
+        span.set_attribute("http.scheme", request.scheme)
+        span.set_attribute("http.host", request.host)
 
         try:
             # Extract client information from request
@@ -245,6 +251,8 @@ def proxy_request():
                 'X-Request-Source': request.headers.get('X-Request-Source', 'proxy'),
                 'X-Correlation-ID': request.headers.get('X-Correlation-ID', f'proxy-{int(time.time())}-{random.randint(100, 999)}')
             }
+            # Inject OpenTelemetry context for distributed tracing
+            inject(headers)
 
             # Prepare payload with client info and proxy metadata
             payload = {

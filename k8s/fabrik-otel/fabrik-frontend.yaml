@@ -19,7 +19,7 @@ spec:
     spec:
       containers:
       - name: fabrik-frontend
-        image: ghcr.io/mreider/fabrik-frontend-oneagent:latest
+        image: ghcr.io/mreider/fabrik-frontend-otel:latest
         imagePullPolicy: Always
         ports:
         - containerPort: 8080
@@ -62,7 +62,7 @@ spec:
         - name: OTEL_SERVICE_NAME
           value: "fabrik-frontend-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-frontend-otel,service.version=1.0.0"
+          value: "service.name=fabrik-frontend-otel,service.version=1.0.0,service.namespace=fabrik"
         resources:
           limits:
             cpu: "300m"

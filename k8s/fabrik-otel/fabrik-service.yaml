@@ -60,7 +60,7 @@ spec:
         - name: OTEL_SERVICE_NAME
           value: "fabrik-service-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-service-otel,service.version=1.0.0"
+          value: "service.name=fabrik-service-otel,service.version=1.0.0,service.namespace=fabrik"
         resources:
           limits:
             cpu: "400m"

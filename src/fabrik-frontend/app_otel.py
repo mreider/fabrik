@@ -14,6 +14,7 @@ from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.instrumentation.flask import FlaskInstrumentor
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+from opentelemetry.propagate import inject
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.trace import Status, StatusCode
 
@@ -68,7 +69,8 @@ def init_otel():
         resource = Resource.create({
             "service.name": "fabrik-frontend-otel",
             "service.version": "1.0.0",
-            "service.namespace": "fabrik"
+            "service.namespace": "fabrik",
+            "service.instance.id": os.getenv('HOSTNAME', 'unknown')
         })
 
         # Configure tracing with explicit headers
@@ -128,6 +130,8 @@ def background_load_generator():
                     'X-Request-Source': 'background-load-generator',
                     'X-Correlation-ID': f'load-{int(time.time())}-{random.randint(100, 999)}'
                 }
+                # Inject OpenTelemetry context for distributed tracing
+                inject(headers)
                 payload = {
                     'client_info': {
                         'user_agent': 'Fabrik-Frontend/1.0 (Load Generator)',
@@ -215,6 +219,8 @@ def call_proxy():
             'X-Request-Source': 'api-endpoint',
             'X-Correlation-ID': f'api-{int(time.time())}-{random.randint(100, 999)}'
         }
+        # Inject OpenTelemetry context for distributed tracing
+        inject(headers)
         payload = {
             'client_info': {
                 'user_agent': headers['User-Agent'],
@@ -279,6 +285,8 @@ def generate_load():
                 'X-Request-Source': 'load-test',
                 'X-Correlation-ID': f'load-test-{int(time.time())}-{random.randint(100, 999)}'
             }
+            # Inject OpenTelemetry context for distributed tracing
+            inject(headers)
             payload = {
                 'client_info': {
                     'user_agent': headers['User-Agent'],

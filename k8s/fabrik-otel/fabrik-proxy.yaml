@@ -37,20 +37,20 @@ spec:
           value: "false"
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "http/protobuf"
-        - name: DYNATRACE_ENDPOINT
+        - name: OTEL_EXPORTER_OTLP_ENDPOINT
           valueFrom:
             secretKeyRef:
               name: dynatrace-secret
               key: endpoint
-        - name: DYNATRACE_API_TOKEN
+        - name: OTEL_EXPORTER_OTLP_HEADERS
           valueFrom:
             secretKeyRef:
               name: dynatrace-secret
-              key: api-token
+              key: headers
         - name: OTEL_SERVICE_NAME
           value: "fabrik-proxy-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES
-          value: "service.name=fabrik-proxy-otel,service.version=1.0.0"
+          value: "service.name=fabrik-proxy-otel,service.version=1.0.0,service.namespace=fabrik"
         resources:
           limits:
             cpu: "300m"
