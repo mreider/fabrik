@@ -30,8 +30,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 FABRIK_SERVICE_URL = os.getenv('FABRIK_SERVICE_URL', 'http://fabrik-service:8080')
-DYNATRACE_ENDPOINT = os.getenv('DYNATRACE_ENDPOINT', 'http://localhost:4318')
-DYNATRACE_API_TOKEN = os.getenv('DYNATRACE_API_TOKEN', '')
+# OpenTelemetry will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
 RABBITMQ_HOST = os.getenv('RABBITMQ_HOST', 'rabbitmq')
 RABBITMQ_USER = os.getenv('RABBITMQ_USER', 'fabrik')
 RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'fabrik123')

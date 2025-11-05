@@ -28,8 +28,7 @@ from opentelemetry.trace import Status, StatusCode
 app = Flask(__name__)
 
 # Configuration
-DYNATRACE_ENDPOINT = os.getenv('DYNATRACE_ENDPOINT', 'http://localhost:4318')
-DYNATRACE_API_TOKEN = os.getenv('DYNATRACE_API_TOKEN', '')
+# OpenTelemetry will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
 REDIS_HOST = os.getenv('REDIS_HOST', 'redis')
 REDIS_PORT = int(os.getenv('REDIS_PORT', '6379'))
 MYSQL_HOST = os.getenv('MYSQL_HOST', 'mysql')
@@ -367,7 +366,7 @@ def perform_database_operation():
             if operation == 'select_users':
                 sql_query = "SELECT id, username, email FROM users ORDER BY RAND() LIMIT 5"
                 span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
-                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "users")
+                span.set_attribute("db.collection.name", "users")
 
                 cursor.execute(sql_query)
                 results = cursor.fetchall()
@@ -390,7 +389,7 @@ def perform_database_operation():
                     ORDER BY o.created_at DESC LIMIT 10
                 """
                 span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
-                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "orders")
+                span.set_attribute("db.collection.name", "orders")
 
                 cursor.execute(sql_query)
                 results = cursor.fetchall()
@@ -417,7 +416,7 @@ def perform_database_operation():
                     VALUES (%s, %s, %s, %s)
                 """
                 span.set_attribute(SpanAttributes.DB_STATEMENT, sql_query)
-                span.set_attribute(SpanAttributes.DB_COLLECTION_NAME, "orders")
+                span.set_attribute("db.collection.name", "orders")
 
                 cursor.execute(sql_query, (user_id, product, quantity, amount))
                 order_id = cursor.lastrowid
