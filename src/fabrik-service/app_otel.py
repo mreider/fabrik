@@ -43,15 +43,7 @@ RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'fabrik123')
 def init_otel():
     print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-service")
     print(f"[OTEL INIT] Using OTEL_EXPORTER_OTLP_ENDPOINT environment variable for automatic configuration")
-    print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
-    
-    # Headers for Dynatrace
-    headers = {}
-    if DYNATRACE_API_TOKEN:
-        headers = {"Authorization": f"Api-Token {DYNATRACE_API_TOKEN}"}
-        print(f"[OTEL INIT] Using API token authentication")
-    else:
-        print(f"[OTEL INIT] WARNING: No API token configured")
+    # OpenTelemetry will handle authentication automatically via OTEL_EXPORTER_OTLP_ENDPOINT
     
     # Import resource for proper service identification
     from opentelemetry.sdk.resources import Resource
@@ -65,11 +57,8 @@ def init_otel():
     
     try:
         # Traces
-        print(f"[OTEL INIT] Setting up trace exporter to {DYNATRACE_ENDPOINT}/v1/traces")
-        trace_exporter = OTLPSpanExporter(
-            endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
-            headers=headers
-        )
+        print(f"[OTEL INIT] Setting up trace exporter using OTEL_EXPORTER_OTLP_ENDPOINT")
+        trace_exporter = OTLPSpanExporter()
         trace.set_tracer_provider(TracerProvider(resource=resource))
         trace.get_tracer_provider().add_span_processor(
             BatchSpanProcessor(trace_exporter)
@@ -77,11 +66,8 @@ def init_otel():
         print(f"[OTEL INIT] Trace exporter configured successfully")
         
         # Metrics
-        print(f"[OTEL INIT] Setting up metric exporter to {DYNATRACE_ENDPOINT}/v1/metrics")
-        metric_exporter = OTLPMetricExporter(
-            endpoint=f"{DYNATRACE_ENDPOINT}/v1/metrics",
-            headers=headers
-        )
+        print(f"[OTEL INIT] Setting up metric exporter using OTEL_EXPORTER_OTLP_ENDPOINT")
+        metric_exporter = OTLPMetricExporter()
         metric_reader = PeriodicExportingMetricReader(
             exporter=metric_exporter,
             export_interval_millis=10000
@@ -90,11 +76,8 @@ def init_otel():
         print(f"[OTEL INIT] Metric exporter configured successfully")
         
         # Logs
-        print(f"[OTEL INIT] Setting up log exporter to {DYNATRACE_ENDPOINT}/v1/logs")
-        log_exporter = OTLPLogExporter(
-            endpoint=f"{DYNATRACE_ENDPOINT}/v1/logs",
-            headers=headers
-        )
+        print(f"[OTEL INIT] Setting up log exporter using OTEL_EXPORTER_OTLP_ENDPOINT")
+        log_exporter = OTLPLogExporter()
         logger_provider = LoggerProvider(resource=resource)
         logger_provider.add_log_record_processor(
             BatchLogRecordProcessor(log_exporter)
