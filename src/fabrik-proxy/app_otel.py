@@ -41,10 +41,8 @@ consumer_running = False
 # Initialize OpenTelemetry
 def init_otel():
     print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-proxy")
-    print(f"[OTEL INIT] Using OTEL_EXPORTER_OTLP_ENDPOINT environment variable for automatic configuration")
 
     try:
-        # Use OpenTelemetry's automatic configuration
         from opentelemetry import trace, metrics
         from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
         from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -54,6 +52,29 @@ def init_otel():
         from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
         from opentelemetry.sdk.resources import Resource
 
+        # Get configuration from environment
+        dt_endpoint = os.getenv('DYNATRACE_ENDPOINT', os.getenv('OTEL_EXPORTER_OTLP_ENDPOINT'))
+        dt_token = os.getenv('DYNATRACE_API_TOKEN', '')
+
+        if not dt_endpoint or not dt_token:
+            print(f"[OTEL INIT] ERROR: Missing DYNATRACE_ENDPOINT or DYNATRACE_API_TOKEN")
+            return
+
+        # Construct proper OTLP endpoint for traces
+        if not dt_endpoint.endswith('/api/v2/otlp/v1/traces'):
+            if dt_endpoint.endswith('/api/v2/otlp'):
+                trace_endpoint = dt_endpoint + '/v1/traces'
+                metric_endpoint = dt_endpoint + '/v1/metrics'
+            else:
+                trace_endpoint = dt_endpoint + '/api/v2/otlp/v1/traces'
+                metric_endpoint = dt_endpoint + '/api/v2/otlp/v1/metrics'
+        else:
+            trace_endpoint = dt_endpoint
+            metric_endpoint = dt_endpoint.replace('/traces', '/metrics')
+
+        headers = {"Authorization": f"Api-Token {dt_token}"}
+        print(f"[OTEL INIT] Using trace endpoint: {trace_endpoint}")
+
         # Create resource with service information
         resource = Resource.create({
             "service.name": "fabrik-proxy",
@@ -61,14 +82,14 @@ def init_otel():
             "service.namespace": "fabrik"
         })
 
-        # Configure tracing - OTLP will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
-        trace_exporter = OTLPSpanExporter()
+        # Configure tracing with explicit headers
+        trace_exporter = OTLPSpanExporter(endpoint=trace_endpoint, headers=headers)
         trace.set_tracer_provider(TracerProvider(resource=resource))
         trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(trace_exporter))
         print(f"[OTEL INIT] Trace exporter configured successfully")
 
-        # Configure metrics - OTLP will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
-        metric_exporter = OTLPMetricExporter()
+        # Configure metrics with explicit headers
+        metric_exporter = OTLPMetricExporter(endpoint=metric_endpoint, headers=headers)
         metric_reader = PeriodicExportingMetricReader(exporter=metric_exporter, export_interval_millis=10000)
         metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
         print(f"[OTEL INIT] Metric exporter configured successfully")
