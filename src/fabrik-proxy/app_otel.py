@@ -19,7 +19,7 @@ from opentelemetry.instrumentation.requests import RequestsInstrumentor
 from opentelemetry.instrumentation.pika import PikaInstrumentor
 from opentelemetry.trace import Status, StatusCode
 
-app = Flask(__name__)
+app = Flask("fabrik-proxy-otel")
 
 # Set up logging
 logging.basicConfig(

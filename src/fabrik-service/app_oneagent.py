@@ -9,7 +9,7 @@ import mysql.connector
 import pika
 from flask import Flask, jsonify, request
 
-app = Flask(__name__)
+app = Flask("fabrik-service-oneagent")
 
 # Set up logging
 logging.basicConfig(

@@ -6,7 +6,7 @@ import logging
 import threading
 from flask import Flask, jsonify, request
 
-app = Flask(__name__)
+app = Flask("fabrik-frontend-otel")
 
 # Set up logging
 logging.basicConfig(

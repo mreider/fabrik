@@ -107,6 +107,9 @@ spec:
         image: nginx:1.25-alpine
         ports:
         - containerPort: 80
+        env:
+        - name: DT_SERVICE_NAME
+          value: "nginx-oneagent"
         volumeMounts:
         - name: nginx-config
           mountPath: /etc/nginx/nginx.conf

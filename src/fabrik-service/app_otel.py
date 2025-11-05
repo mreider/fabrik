@@ -25,7 +25,7 @@ from opentelemetry.instrumentation.pika import PikaInstrumentor
 from opentelemetry.semconv.trace import SpanAttributes
 from opentelemetry.trace import Status, StatusCode
 
-app = Flask(__name__)
+app = Flask("fabrik-service-otel")
 
 # Configuration
 # OpenTelemetry will use OTEL_EXPORTER_OTLP_ENDPOINT automatically

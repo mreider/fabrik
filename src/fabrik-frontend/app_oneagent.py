@@ -6,7 +6,7 @@ import logging
 import threading
 from flask import Flask, jsonify
 
-app = Flask(__name__)
+app = Flask("fabrik-frontend-oneagent")
 
 # Set up logging
 logging.basicConfig(
