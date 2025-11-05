@@ -17,7 +17,7 @@ logger = logging.getLogger(__name__)
 
 # Configuration
 FABRIK_SERVICE_URL = os.getenv('FABRIK_SERVICE_URL', 'http://fabrik-service.fabrik:8080')
-FABRIK_PROXY_URL = os.getenv('FABRIK_PROXY_URL', 'http://fabrik-proxy.fabrik:8080')
+FABRIK_PROXY_URL = os.getenv('FABRIK_PROXY_URL', 'http://nginx.fabrik-otel:80')
 LOAD_GENERATOR_ENABLED = os.getenv('LOAD_GENERATOR_ENABLED', 'true').lower() == 'true'
 LOAD_INTERVAL_MIN = int(os.getenv('LOAD_INTERVAL_MIN', '3'))  # minimum seconds between requests
 LOAD_INTERVAL_MAX = int(os.getenv('LOAD_INTERVAL_MAX', '8'))  # maximum seconds between requests

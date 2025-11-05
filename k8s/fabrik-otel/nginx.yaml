@@ -108,13 +108,6 @@ spec:
         ports:
         - containerPort: 80
         env:
-        - name: DYNATRACE_ENDPOINT
-          value: "http://dynatrace-activegate.dynatrace:14499"
-        - name: DYNATRACE_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: api-token
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
           valueFrom:
             secretKeyRef:

@@ -42,13 +42,6 @@ spec:
           value: "fabrik"
         - name: RABBITMQ_PASSWORD
           value: "fabrik123"
-        - name: DYNATRACE_ENDPOINT
-          value: "http://dynatrace-activegate.dynatrace:14499"
-        - name: DYNATRACE_API_TOKEN
-          valueFrom:
-            secretKeyRef:
-              name: dynatrace-secret
-              key: api-token
         # OpenTelemetry configuration with enrichment
         - name: OTEL_SDK_DISABLED
           value: "false"
