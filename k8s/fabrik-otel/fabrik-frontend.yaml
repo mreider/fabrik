@@ -54,6 +54,11 @@ spec:
             secretKeyRef:
               name: dynatrace-secret
               key: endpoint
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: headers
         - name: OTEL_SERVICE_NAME
           value: "fabrik-frontend-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES
