@@ -29,7 +29,7 @@ spec:
         - name: FABRIK_SERVICE_URL
           value: "http://fabrik-service.fabrik-oneagent:8080"
         - name: FABRIK_PROXY_URL
-          value: "http://fabrik-proxy.fabrik-oneagent:8080"
+          value: "http://nginx.fabrik-oneagent:80"
         - name: LOAD_GENERATOR_ENABLED
           value: "true"
         - name: LOAD_INTERVAL_MIN

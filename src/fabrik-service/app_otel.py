@@ -42,7 +42,7 @@ RABBITMQ_PASSWORD = os.getenv('RABBITMQ_PASSWORD', 'fabrik123')
 # Initialize OpenTelemetry
 def init_otel():
     print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-service")
-    print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    print(f"[OTEL INIT] Using OTEL_EXPORTER_OTLP_ENDPOINT environment variable for automatic configuration")
     print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
     
     # Headers for Dynatrace
@@ -681,6 +681,6 @@ def redis_cleanup():
 if __name__ == '__main__':
     logger.info("Starting fabrik-service with OpenTelemetry instrumentation")
     logger.info(f"Redis connection: {REDIS_HOST}:{REDIS_PORT}")
-    logger.info(f"Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    logger.info("OpenTelemetry configured via OTEL_EXPORTER_OTLP_ENDPOINT environment variable")
     logger.info("fabrik-service is ready to receive requests")
     app.run(host='0.0.0.0', port=8080, debug=False)

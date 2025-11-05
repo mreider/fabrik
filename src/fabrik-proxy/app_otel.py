@@ -41,52 +41,38 @@ consumer_running = False
 # Initialize OpenTelemetry
 def init_otel():
     print(f"[OTEL INIT] Starting OpenTelemetry initialization for fabrik-proxy")
-    print(f"[OTEL INIT] Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
-    print(f"[OTEL INIT] API token configured: {'Yes' if DYNATRACE_API_TOKEN else 'No'}")
-
-    # Headers for Dynatrace
-    headers = {}
-    if DYNATRACE_API_TOKEN:
-        headers = {"Authorization": f"Api-Token {DYNATRACE_API_TOKEN}"}
-        print(f"[OTEL INIT] Using API token authentication")
-    else:
-        print(f"[OTEL INIT] WARNING: No API token configured")
-
-    # Import resource for proper service identification
-    from opentelemetry.sdk.resources import Resource
-
-    # Create resource with service information
-    resource = Resource.create({
-        "service.name": "fabrik-proxy",
-        "service.version": "1.0.0",
-        "service.namespace": "fabrik"
-    })
+    print(f"[OTEL INIT] Using OTEL_EXPORTER_OTLP_ENDPOINT environment variable for automatic configuration")
 
     try:
-        # Traces
-        print(f"[OTEL INIT] Setting up trace exporter to {DYNATRACE_ENDPOINT}/v1/traces")
-        trace_exporter = OTLPSpanExporter(
-            endpoint=f"{DYNATRACE_ENDPOINT}/v1/traces",
-            headers=headers
-        )
+        # Use OpenTelemetry's automatic configuration
+        from opentelemetry import trace, metrics
+        from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
+        from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
+        from opentelemetry.sdk.trace import TracerProvider
+        from opentelemetry.sdk.trace.export import BatchSpanProcessor
+        from opentelemetry.sdk.metrics import MeterProvider
+        from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
+        from opentelemetry.sdk.resources import Resource
+
+        # Create resource with service information
+        resource = Resource.create({
+            "service.name": "fabrik-proxy",
+            "service.version": "1.0.0",
+            "service.namespace": "fabrik"
+        })
+
+        # Configure tracing - OTLP will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
+        trace_exporter = OTLPSpanExporter()
         trace.set_tracer_provider(TracerProvider(resource=resource))
-        trace.get_tracer_provider().add_span_processor(
-            BatchSpanProcessor(trace_exporter)
-        )
+        trace.get_tracer_provider().add_span_processor(BatchSpanProcessor(trace_exporter))
         print(f"[OTEL INIT] Trace exporter configured successfully")
 
-        # Metrics
-        print(f"[OTEL INIT] Setting up metric exporter to {DYNATRACE_ENDPOINT}/v1/metrics")
-        metric_exporter = OTLPMetricExporter(
-            endpoint=f"{DYNATRACE_ENDPOINT}/v1/metrics",
-            headers=headers
-        )
-        metric_reader = PeriodicExportingMetricReader(
-            exporter=metric_exporter,
-            export_interval_millis=10000
-        )
+        # Configure metrics - OTLP will use OTEL_EXPORTER_OTLP_ENDPOINT automatically
+        metric_exporter = OTLPMetricExporter()
+        metric_reader = PeriodicExportingMetricReader(exporter=metric_exporter, export_interval_millis=10000)
         metrics.set_meter_provider(MeterProvider(resource=resource, metric_readers=[metric_reader]))
         print(f"[OTEL INIT] Metric exporter configured successfully")
+
         print(f"[OTEL INIT] OpenTelemetry initialization completed successfully")
 
     except Exception as e:
@@ -317,7 +303,7 @@ def check_fabrik_service_health():
 if __name__ == '__main__':
     logger.info("Starting fabrik-proxy with OpenTelemetry instrumentation")
     logger.info(f"fabrik-service URL: {FABRIK_SERVICE_URL}")
-    logger.info(f"Dynatrace endpoint: {DYNATRACE_ENDPOINT}")
+    logger.info("OpenTelemetry configured via OTEL_EXPORTER_OTLP_ENDPOINT environment variable")
 
     # Check fabrik-service health
     check_fabrik_service_health()
