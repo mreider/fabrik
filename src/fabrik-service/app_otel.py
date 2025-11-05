@@ -350,7 +350,7 @@ def perform_database_operation():
             span.set_attribute(SpanAttributes.DB_SYSTEM, "mysql")
             span.set_attribute(SpanAttributes.DB_NAME, MYSQL_DATABASE)
             span.set_attribute("server.address", MYSQL_HOST)
-            span.set_attribute(SpanAttributes.SERVER_PORT, 3306)
+            span.set_attribute("server.port", 3306)
             span.set_attribute(SpanAttributes.DB_USER, MYSQL_USER)
 
             # Random chance of database failure (10%)
