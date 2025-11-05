@@ -7,7 +7,7 @@ import requests
 import redis
 import mysql.connector
 import pika
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 from opentelemetry import trace, metrics
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
@@ -190,15 +190,48 @@ logger.setLevel(logging.INFO)
 def health():
     return jsonify({"status": "healthy", "service": "fabrik-service"})
 
-@app.route('/api/process')
+@app.route('/api/process', methods=['GET', 'POST'])
 def process_request():
     """Main processing endpoint - returns 200, some 500s, writes to Redis"""
-    logger.info("Received request at /api/process endpoint")
+
+    # Extract client and proxy information from POST request
+    client_info = {}
+    proxy_info = {}
+    request_data = {}
+
+    if request.method == 'POST' and request.is_json:
+        payload = request.get_json() or {}
+        client_info = payload.get('client_info', {})
+        proxy_info = payload.get('proxy_info', {})
+        request_data = payload.get('request_data', {})
+
+        logger.info(f"Received POST request at /api/process endpoint from client: {client_info.get('client_id', 'unknown')}")
+
+        # Log client information
+        if client_info:
+            logger.info(f"Client info: {client_info.get('user_agent', 'unknown')} from {client_info.get('request_source', 'unknown')}")
+
+        # Log proxy information
+        if proxy_info:
+            logger.info(f"Proxied by: {proxy_info.get('service', 'unknown')} from {proxy_info.get('forwarded_from', 'unknown')}")
+    else:
+        logger.info("Received GET request at /api/process endpoint")
+
     request_counter.add(1, {"endpoint": "/api/process"})
-    
+
     with tracer.start_as_current_span("process_request") as span:
         span.set_attribute("service.name", "fabrik-service")
         span.set_attribute("operation", "process_request")
+
+        # Add client and proxy info to span
+        if client_info:
+            span.set_attribute("client.id", client_info.get('client_id', 'unknown'))
+            span.set_attribute("client.user_agent", client_info.get('user_agent', 'unknown'))
+            span.set_attribute("client.request_source", client_info.get('request_source', 'unknown'))
+
+        if proxy_info:
+            span.set_attribute("proxy.service", proxy_info.get('service', 'unknown'))
+            span.set_attribute("proxy.forwarded_from", proxy_info.get('forwarded_from', 'unknown'))
         
         # Simulate some processing time
         processing_time = random.uniform(0.05, 0.3)
@@ -288,7 +321,17 @@ def process_request():
 
         if external_request_data:
             response_data["external_request"] = external_request_data
-        
+
+        # Include client and proxy information in response
+        if client_info:
+            response_data["received_client_info"] = client_info
+
+        if proxy_info:
+            response_data["received_proxy_info"] = proxy_info
+
+        if request_data:
+            response_data["received_request_data"] = request_data
+
         logger.info(f"Successfully processed request {response_data['request_id']}")
         return jsonify(response_data)
 
@@ -306,7 +349,7 @@ def perform_database_operation():
             # Set database semantic attributes
             span.set_attribute(SpanAttributes.DB_SYSTEM, "mysql")
             span.set_attribute(SpanAttributes.DB_NAME, MYSQL_DATABASE)
-            span.set_attribute(SpanAttributes.SERVER_ADDRESS, MYSQL_HOST)
+            span.set_attribute("server.address", MYSQL_HOST)
             span.set_attribute(SpanAttributes.SERVER_PORT, 3306)
             span.set_attribute(SpanAttributes.DB_USER, MYSQL_USER)
 

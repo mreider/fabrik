@@ -7,7 +7,7 @@ import requests
 import redis
 import mysql.connector
 import pika
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
@@ -66,10 +66,32 @@ def health():
         "instrumentation": "oneagent"
     })
 
-@app.route('/api/process')
+@app.route('/api/process', methods=['GET', 'POST'])
 def process_request():
     """Main processing endpoint - returns 200, some 500s, writes to Redis"""
-    logger.info("Received request at /api/process endpoint")
+
+    # Extract client and proxy information from POST request
+    client_info = {}
+    proxy_info = {}
+    request_data = {}
+
+    if request.method == 'POST' and request.is_json:
+        payload = request.get_json() or {}
+        client_info = payload.get('client_info', {})
+        proxy_info = payload.get('proxy_info', {})
+        request_data = payload.get('request_data', {})
+
+        logger.info(f"Received POST request at /api/process endpoint from client: {client_info.get('client_id', 'unknown')}")
+
+        # Log client information
+        if client_info:
+            logger.info(f"Client info: {client_info.get('user_agent', 'unknown')} from {client_info.get('request_source', 'unknown')}")
+
+        # Log proxy information
+        if proxy_info:
+            logger.info(f"Proxied by: {proxy_info.get('service', 'unknown')} from {proxy_info.get('forwarded_from', 'unknown')}")
+    else:
+        logger.info("Received GET request at /api/process endpoint")
 
     # Simulate some processing time
     processing_time = random.uniform(0.05, 0.3)
@@ -138,6 +160,16 @@ def process_request():
 
     if external_request_data:
         response_data["external_request"] = external_request_data
+
+    # Include client and proxy information in response
+    if client_info:
+        response_data["received_client_info"] = client_info
+
+    if proxy_info:
+        response_data["received_proxy_info"] = proxy_info
+
+    if request_data:
+        response_data["received_request_data"] = request_data
 
     logger.info(f"Successfully processed request {response_data['request_id']}")
     return jsonify(response_data)

@@ -55,7 +55,10 @@ spec:
         - name: OTEL_EXPORTER_OTLP_PROTOCOL
           value: "http/protobuf"
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://dynatrace-activegate.dynatrace:14499/otlp"
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: endpoint
         - name: OTEL_SERVICE_NAME
           value: "fabrik-service-otel"
         - name: OTEL_RESOURCE_ATTRIBUTES

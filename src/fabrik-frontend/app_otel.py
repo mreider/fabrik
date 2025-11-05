@@ -4,7 +4,7 @@ import random
 import requests
 import logging
 import threading
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
@@ -45,9 +45,29 @@ def background_load_generator():
                 break
                 
             try:
-                # Call fabrik-proxy endpoint
-                response = requests.get(f"{FABRIK_PROXY_URL}/api/proxy", timeout=10)
-                
+                # Call fabrik-proxy endpoint with POST and headers
+                headers = {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Fabrik-Frontend/1.0 (Load Generator)',
+                    'X-Client-ID': f'frontend-{random.randint(1000, 9999)}',
+                    'X-Request-Source': 'background-load-generator',
+                    'X-Correlation-ID': f'load-{int(time.time())}-{random.randint(100, 999)}'
+                }
+                payload = {
+                    'client_info': {
+                        'user_agent': 'Fabrik-Frontend/1.0 (Load Generator)',
+                        'client_id': headers['X-Client-ID'],
+                        'request_source': 'background-load-generator'
+                    },
+                    'request_data': {
+                        'operation': 'proxy_request',
+                        'timestamp': time.time(),
+                        'load_generator': True
+                    }
+                }
+                response = requests.post(f"{FABRIK_PROXY_URL}/api/proxy",
+                                       json=payload, headers=headers, timeout=10)
+
                 if response.status_code == 200:
                     logger.info(f"Background load request to proxy successful (interval: {interval:.1f}s)")
                 else:
@@ -67,7 +87,7 @@ def health():
     return jsonify({
         "status": "healthy", 
         "service": "fabrik-frontend",
-        "instrumentation": "oneagent",
+        "instrumentation": "otel",
         "load_generator_enabled": LOAD_GENERATOR_ENABLED,
         "load_generator_running": load_generator_running,
         "service_url": FABRIK_SERVICE_URL
@@ -106,22 +126,44 @@ def load_generator_status():
         "target_url": f"{FABRIK_PROXY_URL}/api/proxy"
     })
 
-@app.route('/api/call-proxy')
+@app.route('/api/call-proxy', methods=['GET', 'POST'])
 def call_proxy():
-    """Make a single call to the fabrik-service"""
-    logger.info(f"Making single request to fabrik-service: {FABRIK_SERVICE_URL}/api/process")
-    
+    """Make a single call to the fabrik-proxy"""
+    logger.info(f"Making single request to fabrik-proxy: {FABRIK_PROXY_URL}/api/proxy")
+
     try:
-        response = requests.get(f"{FABRIK_SERVICE_URL}/api/process", timeout=10)
-        
+        # Prepare headers with client information
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': request.headers.get('User-Agent', 'Fabrik-Frontend/1.0'),
+            'X-Client-ID': f'frontend-api-{random.randint(1000, 9999)}',
+            'X-Request-Source': 'api-endpoint',
+            'X-Correlation-ID': f'api-{int(time.time())}-{random.randint(100, 999)}'
+        }
+        payload = {
+            'client_info': {
+                'user_agent': headers['User-Agent'],
+                'client_id': headers['X-Client-ID'],
+                'request_source': 'api-endpoint',
+                'forwarded_headers': dict(request.headers)
+            },
+            'request_data': {
+                'operation': 'api_call_proxy',
+                'timestamp': time.time(),
+                'load_generator': False
+            }
+        }
+        response = requests.post(f"{FABRIK_PROXY_URL}/api/proxy",
+                               json=payload, headers=headers, timeout=10)
+
         logger.info(f"Received response from fabrik-service: {response.status_code}")
-        
+
         if response.status_code == 200:
             logger.info(f"Successfully called fabrik-service")
             return jsonify({
                 "status": "success",
                 "frontend": "fabrik-frontend",
-                "instrumentation": "oneagent",
+                "instrumentation": "otel",
                 "service_response": response.json()
             })
         else:
@@ -129,17 +171,17 @@ def call_proxy():
             return jsonify({
                 "status": "error",
                 "frontend": "fabrik-frontend",
-                "instrumentation": "oneagent",
+                "instrumentation": "otel",
                 "error": f"Service returned {response.status_code}",
                 "service_response": response.text
             }), response.status_code
-                
+
     except requests.exceptions.RequestException as e:
         logger.error(f"Request exception when calling service: {str(e)}")
         return jsonify({
             "status": "error",
             "frontend": "fabrik-frontend",
-            "instrumentation": "oneagent",
+            "instrumentation": "otel",
             "error": str(e),
             "service_url": f"{FABRIK_SERVICE_URL}/api/process"
         }), 500
@@ -154,7 +196,28 @@ def generate_load():
     
     for i in range(num_requests):
         try:
-            response = requests.get(f"{FABRIK_PROXY_URL}/api/proxy", timeout=5)
+            # Prepare headers and payload for POST request
+            headers = {
+                'Content-Type': 'application/json',
+                'User-Agent': 'Fabrik-Frontend/1.0 (Load Test)',
+                'X-Client-ID': f'frontend-load-{random.randint(1000, 9999)}',
+                'X-Request-Source': 'load-test',
+                'X-Correlation-ID': f'load-test-{int(time.time())}-{random.randint(100, 999)}'
+            }
+            payload = {
+                'client_info': {
+                    'user_agent': headers['User-Agent'],
+                    'client_id': headers['X-Client-ID'],
+                    'request_source': 'load-test'
+                },
+                'request_data': {
+                    'operation': 'load_test',
+                    'timestamp': time.time(),
+                    'request_number': i + 1
+                }
+            }
+            response = requests.post(f"{FABRIK_PROXY_URL}/api/proxy",
+                                   json=payload, headers=headers, timeout=5)
             results.append({
                 "request": i + 1,
                 "status": response.status_code,
@@ -176,7 +239,7 @@ def generate_load():
     return jsonify({
         "status": "completed",
         "frontend": "fabrik-frontend",
-        "instrumentation": "oneagent",
+        "instrumentation": "otel",
         "load_test_results": results,
         "total_requests": num_requests,
         "successful_requests": successful_requests,

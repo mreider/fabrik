@@ -28,9 +28,10 @@ echo "Applying DynaKube custom resource..."
 kubectl apply -f k8s/dynakube.yaml -n dynatrace
 # --- END Dynatrace Operator Deployment ---
 
-# Create Dynatrace secret in OTel namespace
+# Create Dynatrace secret in both namespaces
 echo "Creating Dynatrace secret..."
 kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-otel
+kubectl apply -f k8s/dynatrace-secret.yaml -n fabrik-oneagent
 
 # Deploy infrastructure (Redis, MySQL, RabbitMQ, Nginx)
 echo "Deploying infrastructure (Redis, MySQL, RabbitMQ, Nginx)..."
@@ -87,7 +88,7 @@ echo "kubectl port-forward -n fabrik-oneagent svc/fabrik-frontend 8080:8080"
 echo "curl http://localhost:8080/api/call-proxy"
 echo "# Via nginx proxy:"
 echo "kubectl port-forward -n fabrik-oneagent svc/nginx 8090:80"
-echo "curl http://localhost:8090/api/proxy"
+echo "curl http://localhost:8090/api/call-proxy"
 echo "curl http://localhost:8090/nginx-health"
 echo ""
 echo "# OpenTelemetry (with Dynatrace enrichment):"
@@ -96,5 +97,5 @@ echo "kubectl port-forward -n fabrik-otel svc/fabrik-frontend 8081:8080"
 echo "curl http://localhost:8081/api/call-proxy"
 echo "# Via nginx proxy (with OTel instrumentation):"
 echo "kubectl port-forward -n fabrik-otel svc/nginx 8091:80"
-echo "curl http://localhost:8091/api/proxy"
+echo "curl http://localhost:8091/api/call-proxy"
 echo "curl http://localhost:8091/nginx-health"

@@ -5,8 +5,6 @@ metadata:
   namespace: fabrik-otel
 data:
   nginx.conf: |
-    load_module modules/ngx_http_opentelemetry_module.so;
-
     user nginx;
     worker_processes auto;
     error_log /var/log/nginx/error.log notice;
@@ -31,9 +29,6 @@ data:
         keepalive_timeout 65;
         gzip on;
 
-        # OpenTelemetry configuration
-        opentelemetry_config /etc/nginx/otel-nginx.toml;
-
         upstream fabrik_frontend {
             server fabrik-frontend.fabrik-otel:8080;
         }
@@ -46,11 +41,6 @@ data:
             listen 80;
             server_name nginx-otel;
 
-            # Enable OpenTelemetry for this server
-            opentelemetry on;
-            opentelemetry_operation_name $request_method $uri;
-            opentelemetry_propagate;
-
             # Health check
             location /nginx-health {
                 access_log off;
@@ -60,7 +50,6 @@ data:
 
             # Proxy frontend requests
             location /frontend/ {
-                opentelemetry_operation_name "nginx_proxy_frontend";
                 proxy_pass http://fabrik_frontend/;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
@@ -73,8 +62,7 @@ data:
 
             # Proxy API requests to proxy service
             location /api/ {
-                opentelemetry_operation_name "nginx_proxy_api";
-                proxy_pass http://fabrik_proxy/api/;
+                proxy_pass http://fabrik_proxy/;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
                 proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -86,7 +74,6 @@ data:
 
             # Default location
             location / {
-                opentelemetry_operation_name "nginx_proxy_default";
                 proxy_pass http://fabrik_frontend/;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
@@ -95,21 +82,6 @@ data:
             }
         }
     }
-  otel-nginx.toml: |
-    exporter = "otlp"
-    processor = "batch"
-
-    [exporters.otlp]
-    host = "dynatrace-activegate.dynatrace"
-    port = 14499
-
-    [service]
-    name = "nginx-otel"
-    namespace = "fabrik"
-    version = "1.0.0"
-
-    [sampler]
-    name = "AlwaysOn"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -132,7 +104,7 @@ spec:
     spec:
       containers:
       - name: nginx
-        image: nginx/nginx-otel:latest
+        image: nginx:1.25-alpine
         ports:
         - containerPort: 80
         env:
@@ -144,7 +116,10 @@ spec:
               name: dynatrace-secret
               key: api-token
         - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: "http://dynatrace-activegate.dynatrace:14499/otlp"
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: endpoint
         - name: OTEL_SERVICE_NAME
           value: "nginx-otel"
         - name: OTEL_SERVICE_NAMESPACE
@@ -157,9 +132,6 @@ spec:
         - name: nginx-config
           mountPath: /etc/nginx/nginx.conf
           subPath: nginx.conf
-        - name: nginx-config
-          mountPath: /etc/nginx/otel-nginx.toml
-          subPath: otel-nginx.toml
         resources:
           limits:
             cpu: "200m"

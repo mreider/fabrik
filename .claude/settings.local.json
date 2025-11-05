@@ -13,7 +13,15 @@
       "Bash(git commit:*)",
       "Bash(curl:*)",
       "Bash(kubectl get:*)",
-      "Bash(kubectl delete:*)"
+      "Bash(kubectl delete:*)",
+      "Bash(./deploy-all.sh)",
+      "Bash(kubectl rollout restart:*)",
+      "Bash(pkill:*)",
+      "Bash(kubectl exec:*)",
+      "Bash(kubectl run:*)",
+      "Bash(for i in {1..5})",
+      "Bash(done)",
+      "Bash(for i in {1..3})"
     ],
     "deny": [],
     "ask": []

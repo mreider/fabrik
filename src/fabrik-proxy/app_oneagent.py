@@ -4,8 +4,9 @@ import logging
 import json
 import random
 import threading
+import time
 import pika
-from flask import Flask, jsonify
+from flask import Flask, jsonify, request
 
 app = Flask(__name__)
 
@@ -108,17 +109,44 @@ def health():
         "message_consumer_running": consumer_running
     })
 
-@app.route('/api/proxy')
+@app.route('/api/proxy', methods=['GET', 'POST'])
 def proxy_request():
     """Proxy requests to fabrik-service"""
     logger.info(f"Received request at /api/proxy endpoint")
 
     try:
+        # Extract client information from request
+        client_data = {}
+        if request.method == 'POST' and request.is_json:
+            client_data = request.get_json() or {}
+
+        # Propagate headers and add new ones
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': request.headers.get('User-Agent', 'Fabrik-Proxy/1.0'),
+            'X-Forwarded-By': 'fabrik-proxy',
+            'X-Client-ID': request.headers.get('X-Client-ID', f'proxy-{random.randint(1000, 9999)}'),
+            'X-Request-Source': request.headers.get('X-Request-Source', 'proxy'),
+            'X-Correlation-ID': request.headers.get('X-Correlation-ID', f'proxy-{int(time.time())}-{random.randint(100, 999)}')
+        }
+
+        # Prepare payload with client info and proxy metadata
+        payload = {
+            'client_info': client_data.get('client_info', {}),
+            'proxy_info': {
+                'service': 'fabrik-proxy',
+                'forwarded_from': request.remote_addr,
+                'original_headers': dict(request.headers)
+            },
+            'request_data': client_data.get('request_data', {})
+        }
+        payload['request_data']['proxied_at'] = time.time()
+
         # Call fabrik-service
         upstream_url = f"{FABRIK_SERVICE_URL}/api/process"
         logger.info(f"Making request to: {upstream_url}")
 
-        response = requests.get(upstream_url, timeout=10)
+        response = requests.post(upstream_url, json=payload, headers=headers, timeout=10)
 
         logger.info(f"Received response from fabrik-service: {response.status_code}")
 

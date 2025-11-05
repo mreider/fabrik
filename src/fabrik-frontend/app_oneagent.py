@@ -45,8 +45,28 @@ def background_load_generator():
                 break
 
             try:
-                # Call fabrik-proxy endpoint
-                response = requests.get(f"{FABRIK_PROXY_URL}/api/proxy", timeout=10)
+                # Call fabrik-proxy endpoint with POST and headers
+                headers = {
+                    'Content-Type': 'application/json',
+                    'User-Agent': 'Fabrik-Frontend/1.0 (Load Generator)',
+                    'X-Client-ID': f'frontend-{random.randint(1000, 9999)}',
+                    'X-Request-Source': 'background-load-generator',
+                    'X-Correlation-ID': f'load-{int(time.time())}-{random.randint(100, 999)}'
+                }
+                payload = {
+                    'client_info': {
+                        'user_agent': 'Fabrik-Frontend/1.0 (Load Generator)',
+                        'client_id': headers['X-Client-ID'],
+                        'request_source': 'background-load-generator'
+                    },
+                    'request_data': {
+                        'operation': 'proxy_request',
+                        'timestamp': time.time(),
+                        'load_generator': True
+                    }
+                }
+                response = requests.post(f"{FABRIK_PROXY_URL}/api/proxy",
+                                       json=payload, headers=headers, timeout=10)
 
                 if response.status_code == 200:
                     logger.info(f"Background load request to proxy successful (interval: {interval:.1f}s)")
@@ -106,13 +126,35 @@ def load_generator_status():
         "target_url": f"{FABRIK_PROXY_URL}/api/proxy"
     })
 
-@app.route('/api/call-proxy')
+@app.route('/api/call-proxy', methods=['GET', 'POST'])
 def call_proxy():
-    """Make a single call to the fabrik-service"""
-    logger.info(f"Making single request to fabrik-service: {FABRIK_SERVICE_URL}/api/process")
+    """Make a single call to the fabrik-proxy"""
+    logger.info(f"Making single request to fabrik-proxy: {FABRIK_PROXY_URL}/api/proxy")
 
     try:
-        response = requests.get(f"{FABRIK_SERVICE_URL}/api/process", timeout=10)
+        # Prepare headers with client information
+        headers = {
+            'Content-Type': 'application/json',
+            'User-Agent': request.headers.get('User-Agent', 'Fabrik-Frontend/1.0'),
+            'X-Client-ID': f'frontend-api-{random.randint(1000, 9999)}',
+            'X-Request-Source': 'api-endpoint',
+            'X-Correlation-ID': f'api-{int(time.time())}-{random.randint(100, 999)}'
+        }
+        payload = {
+            'client_info': {
+                'user_agent': headers['User-Agent'],
+                'client_id': headers['X-Client-ID'],
+                'request_source': 'api-endpoint',
+                'forwarded_headers': dict(request.headers)
+            },
+            'request_data': {
+                'operation': 'api_call_proxy',
+                'timestamp': time.time(),
+                'load_generator': False
+            }
+        }
+        response = requests.post(f"{FABRIK_PROXY_URL}/api/proxy",
+                               json=payload, headers=headers, timeout=10)
 
         logger.info(f"Received response from fabrik-service: {response.status_code}")
 
