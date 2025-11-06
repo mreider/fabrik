@@ -24,7 +24,7 @@ RUN cat package.json | \
     mv package-oneagent.json package.json
 
 # Install dependencies
-RUN npm ci --omit=dev
+RUN npm install --production
 
 # Copy OneAgent application code
 COPY app-oneagent.js app.js
