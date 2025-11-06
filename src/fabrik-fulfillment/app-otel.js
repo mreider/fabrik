@@ -1,27 +1,14 @@
 // OpenTelemetry instrumentation must be initialized first
 const { NodeSDK } = require('@opentelemetry/sdk-node');
-const { OTLPTraceExporter } = require('@opentelemetry/exporter-otlp-http');
-const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
 
-// Initialize OpenTelemetry
-const otlpExporter = new OTLPTraceExporter({
-  url: process.env.OTEL_EXPORTER_OTLP_ENDPOINT + '/v1/traces',
-  headers: {
-    'Authorization': `Api-Token ${process.env.DYNATRACE_API_TOKEN}`
-  }
-});
-
+// Initialize OpenTelemetry with environment variables
 const sdk = new NodeSDK({
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: 'fabrik-fulfillment-otel',
-    [SemanticResourceAttributes.SERVICE_VERSION]: '1.0.0',
-    [SemanticResourceAttributes.SERVICE_NAMESPACE]: 'fabrik',
-    [SemanticResourceAttributes.SERVICE_INSTANCE_ID]: process.env.HOSTNAME || 'unknown'
-  }),
-  traceExporter: otlpExporter,
-  instrumentations: [getNodeAutoInstrumentations()],
+  instrumentations: [getNodeAutoInstrumentations({
+    '@opentelemetry/instrumentation-fs': {
+      enabled: false,
+    },
+  })],
 });
 
 sdk.start();

@@ -13,13 +13,6 @@ COPY package.json ./
 RUN cat package.json | \
     jq 'del(.dependencies["@opentelemetry/api"]) | \
         del(.dependencies["@opentelemetry/sdk-node"]) | \
-        del(.dependencies["@opentelemetry/instrumentation"]) | \
-        del(.dependencies["@opentelemetry/instrumentation-http"]) | \
-        del(.dependencies["@opentelemetry/instrumentation-express"]) | \
-        del(.dependencies["@opentelemetry/instrumentation-mysql2"]) | \
-        del(.dependencies["@opentelemetry/exporter-otlp-http"]) | \
-        del(.dependencies["@opentelemetry/resources"]) | \
-        del(.dependencies["@opentelemetry/semantic-conventions"]) | \
         del(.dependencies["@opentelemetry/auto-instrumentations-node"])' > package-oneagent.json && \
     mv package-oneagent.json package.json
 
