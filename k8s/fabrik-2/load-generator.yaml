@@ -1,0 +1,46 @@
+---
+# Load Generator for Fabrik-2 (OpenTelemetry)
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: load-generator
+  namespace: fabrik-2
+  labels:
+    app: load-generator
+    tier: client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: load-generator
+  template:
+    metadata:
+      labels:
+        app: load-generator
+        tier: client
+      annotations:
+        # Disable OneAgent injection
+        dynatrace.com/inject: "false"
+    spec:
+      containers:
+      - name: load-generator
+        image: ghcr.io/mreider/fabrik-load-generator:latest
+        imagePullPolicy: Always
+        env:
+        - name: NGINX_URL
+          value: "http://nginx.fabrik-2:80"
+        - name: INTERVAL_MIN
+          value: "2"
+        - name: INTERVAL_MAX
+          value: "8"
+        - name: BATCH_SIZE
+          value: "1"
+        - name: NAMESPACE
+          value: "fabrik-2-otel"
+        resources:
+          limits:
+            cpu: "100m"
+            memory: "64Mi"
+          requests:
+            cpu: "50m"
+            memory: "32Mi"

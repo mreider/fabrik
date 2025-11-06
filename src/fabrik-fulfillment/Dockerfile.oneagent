@@ -1,0 +1,40 @@
+# Dockerfile for OneAgent version (minimal dependencies)
+FROM node:18-alpine
+
+# Install jq for JSON processing
+RUN apk add --no-cache jq
+
+WORKDIR /app
+
+# Copy package file and create minimal package.json for OneAgent version
+COPY package.json ./
+
+# Create minimal package.json without OpenTelemetry dependencies
+RUN cat package.json | \
+    jq 'del(.dependencies["@opentelemetry/api"]) | \
+        del(.dependencies["@opentelemetry/sdk-node"]) | \
+        del(.dependencies["@opentelemetry/instrumentation"]) | \
+        del(.dependencies["@opentelemetry/instrumentation-http"]) | \
+        del(.dependencies["@opentelemetry/instrumentation-express"]) | \
+        del(.dependencies["@opentelemetry/instrumentation-mysql2"]) | \
+        del(.dependencies["@opentelemetry/exporter-otlp-http"]) | \
+        del(.dependencies["@opentelemetry/resources"]) | \
+        del(.dependencies["@opentelemetry/semantic-conventions"]) | \
+        del(.dependencies["@opentelemetry/auto-instrumentations-node"])' > package-oneagent.json && \
+    mv package-oneagent.json package.json
+
+# Install dependencies
+RUN npm ci --only=production
+
+# Copy OneAgent application code
+COPY app-oneagent.js app.js
+
+# Create non-root user
+RUN addgroup -g 1001 -S nodejs
+RUN adduser -S nodejs -u 1001
+
+USER nodejs
+
+EXPOSE 3001
+
+CMD ["npm", "start"]

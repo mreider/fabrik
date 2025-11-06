@@ -1,19 +1,30 @@
-apiVersion: v1
-kind: Namespace
-metadata:
-  name: fabrik-oneagent
-  labels:
-    name: fabrik-oneagent
-    instrumentation: oneagent
-    dynatrace.com/inject: "true"
-    dynatrace.com/enrich: "true"
 ---
+# Fabrik-1 Namespace - Pure OneAgent Instrumentation
 apiVersion: v1
 kind: Namespace
 metadata:
-  name: fabrik-otel
+  name: fabrik-1
   labels:
-    name: fabrik-otel
-    instrumentation: opentelemetry
-    dynatrace.com/inject: "false"
+    # Enable OneAgent injection for all workloads in this namespace
+    dynatrace.com/inject: "true"
+    # Enable metadata enrichment
     dynatrace.com/enrich: "true"
+    # Application identifier
+    app.kubernetes.io/name: "fabrik-orders-demo"
+    app.kubernetes.io/component: "oneagent"
+    app.kubernetes.io/version: "1.0.0"
+---
+# Fabrik-2 Namespace - Pure OpenTelemetry Instrumentation
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fabrik-2
+  labels:
+    # Disable OneAgent injection - we'll use OpenTelemetry
+    dynatrace.com/inject: "false"
+    # Enable metadata enrichment for proper service correlation
+    dynatrace.com/enrich: "true"
+    # Application identifier
+    app.kubernetes.io/name: "fabrik-orders-demo"
+    app.kubernetes.io/component: "opentelemetry"
+    app.kubernetes.io/version: "1.0.0"
