@@ -52,6 +52,11 @@ spec:
             secretKeyRef:
               name: dynatrace-secret
               key: endpoint
+        - name: OTEL_LOGS_EXPORTER_OTLP_ENDPOINT
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-secret
+              key: endpoint
         - name: DYNATRACE_API_TOKEN
           valueFrom:
             secretKeyRef:

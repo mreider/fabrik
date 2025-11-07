@@ -1,6 +1,40 @@
 // OpenTelemetry instrumentation must be initialized first
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { logs } = require('@opentelemetry/api');
+const { LoggerProvider } = require('@opentelemetry/sdk-logs');
+const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+
+// Configure logs export to Dynatrace
+const loggerProvider = new LoggerProvider({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'fabrik-fulfillment-otel',
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+    [SemanticResourceAttributes.SERVICE_NAMESPACE]: process.env.OTEL_SERVICE_NAMESPACE || 'fabrik',
+  }),
+  logRecordProcessors: [
+    {
+      async onEmit(logRecord) {
+        // Send logs to OTLP endpoint
+        const logExporter = new OTLPLogExporter({
+          url: `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/logs`,
+          headers: {
+            'Authorization': `Api-Token ${process.env.DYNATRACE_API_TOKEN}`,
+            'Content-Type': 'application/x-protobuf',
+          },
+        });
+        await logExporter.export([logRecord]);
+      },
+      async forceFlush() {},
+      async shutdown() {}
+    }
+  ],
+});
+
+logs.setGlobalLoggerProvider(loggerProvider);
+const otelLogger = logs.getLogger('fabrik-fulfillment', '1.0.0');
 
 // Initialize OpenTelemetry with environment variables
 const sdk = new NodeSDK({
@@ -12,7 +46,7 @@ const sdk = new NodeSDK({
 });
 
 sdk.start();
-console.log('OpenTelemetry initialized for fabrik-fulfillment');
+console.log('OpenTelemetry initialized for fabrik-fulfillment with logs export');
 
 // Application code
 const express = require('express');
@@ -67,6 +101,17 @@ async function processOrderFulfillment(orderData) {
     });
 
     console.log('Processing order fulfillment:', orderData.orderId);
+    otelLogger.emit({
+      severityText: 'INFO',
+      body: `Processing order fulfillment: ${orderData.orderId}`,
+      attributes: {
+        'order.id': orderData.orderId,
+        'order.customer': orderData.customer_name,
+        'order.product': orderData.product_name,
+        'order.quantity': orderData.quantity,
+        'fulfillment.operation': 'process',
+      }
+    });
 
     // Simulate intermittent processing errors (~3% chance)
     if (Math.random() < 0.03) {
@@ -121,6 +166,16 @@ async function processOrderFulfillment(orderData) {
 
       updateSpan.setStatus({ code: 1 });
       console.log('Order fulfilled successfully:', orderData.orderId);
+      otelLogger.emit({
+        severityText: 'INFO',
+        body: `Order fulfilled successfully: ${orderData.orderId}`,
+        attributes: {
+          'order.id': orderData.orderId,
+          'order.status': 'fulfilled',
+          'fulfillment.operation': 'complete',
+          'db.system': 'mysql',
+        }
+      });
     } catch (dbError) {
       updateSpan.recordException(dbError);
       updateSpan.setStatus({ code: 2, message: dbError.message });

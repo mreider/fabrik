@@ -1,6 +1,40 @@
 // OpenTelemetry instrumentation must be initialized first
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
+const { logs } = require('@opentelemetry/api');
+const { LoggerProvider } = require('@opentelemetry/sdk-logs');
+const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
+const { Resource } = require('@opentelemetry/resources');
+const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+
+// Configure logs export to Dynatrace
+const loggerProvider = new LoggerProvider({
+  resource: new Resource({
+    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'fabrik-orders-otel',
+    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+    [SemanticResourceAttributes.SERVICE_NAMESPACE]: process.env.OTEL_SERVICE_NAMESPACE || 'fabrik',
+  }),
+  logRecordProcessors: [
+    {
+      async onEmit(logRecord) {
+        // Send logs to OTLP endpoint
+        const logExporter = new OTLPLogExporter({
+          url: `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/logs`,
+          headers: {
+            'Authorization': `Api-Token ${process.env.DYNATRACE_API_TOKEN}`,
+            'Content-Type': 'application/x-protobuf',
+          },
+        });
+        await logExporter.export([logRecord]);
+      },
+      async forceFlush() {},
+      async shutdown() {}
+    }
+  ],
+});
+
+logs.setGlobalLoggerProvider(loggerProvider);
+const otelLogger = logs.getLogger('fabrik-orders', '1.0.0');
 
 // Initialize OpenTelemetry with environment variables
 const sdk = new NodeSDK({
@@ -12,7 +46,7 @@ const sdk = new NodeSDK({
 });
 
 sdk.start();
-console.log('OpenTelemetry initialized for fabrik-orders');
+console.log('OpenTelemetry initialized for fabrik-orders with logs export');
 
 // Application code
 const express = require('express');
@@ -92,6 +126,15 @@ async function initializeDatabase() {
     `);
 
     console.log('Database tables initialized');
+    otelLogger.emit({
+      severityText: 'INFO',
+      body: 'Database tables initialized successfully',
+      attributes: {
+        'db.system': 'mysql',
+        'db.name': MYSQL_DATABASE,
+        'service.startup': 'true',
+      }
+    });
     span.setStatus({ code: 1 }); // OK
   } catch (error) {
     span.recordException(error);
@@ -206,10 +249,29 @@ app.post('/orders', async (req, res) => {
         });
         publishSpan.setStatus({ code: 1 });
         console.log('Order published to fulfillment queue:', orderId);
+        otelLogger.emit({
+          severityText: 'INFO',
+          body: `Order published to fulfillment queue: ${orderId}`,
+          attributes: {
+            'order.id': orderId,
+            'messaging.system': 'rabbitmq',
+            'messaging.destination': QUEUE_NAME,
+          }
+        });
       } catch (mqError) {
         publishSpan.recordException(mqError);
         publishSpan.setStatus({ code: 2, message: mqError.message });
         console.error('Failed to publish to RabbitMQ:', mqError);
+        otelLogger.emit({
+          severityText: 'ERROR',
+          body: `Failed to publish to RabbitMQ: ${mqError.message}`,
+          attributes: {
+            'order.id': orderId,
+            'messaging.system': 'rabbitmq',
+            'error.name': mqError.name,
+            'error.message': mqError.message,
+          }
+        });
       } finally {
         publishSpan.end();
       }
