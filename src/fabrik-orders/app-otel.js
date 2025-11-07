@@ -1,40 +1,21 @@
 // OpenTelemetry instrumentation must be initialized first
 const { NodeSDK } = require('@opentelemetry/sdk-node');
 const { getNodeAutoInstrumentations } = require('@opentelemetry/auto-instrumentations-node');
-const { logs } = require('@opentelemetry/api');
-const { LoggerProvider } = require('@opentelemetry/sdk-logs');
-const { OTLPLogExporter } = require('@opentelemetry/exporter-logs-otlp-http');
-const { Resource } = require('@opentelemetry/resources');
-const { SemanticResourceAttributes } = require('@opentelemetry/semantic-conventions');
+// Simplified logging approach without problematic dependencies
 
-// Configure logs export to Dynatrace
-const loggerProvider = new LoggerProvider({
-  resource: new Resource({
-    [SemanticResourceAttributes.SERVICE_NAME]: process.env.OTEL_SERVICE_NAME || 'fabrik-orders-otel',
-    [SemanticResourceAttributes.SERVICE_VERSION]: process.env.OTEL_SERVICE_VERSION || '1.0.0',
-    [SemanticResourceAttributes.SERVICE_NAMESPACE]: process.env.OTEL_SERVICE_NAMESPACE || 'fabrik',
-  }),
-  logRecordProcessors: [
-    {
-      async onEmit(logRecord) {
-        // Send logs to OTLP endpoint
-        const logExporter = new OTLPLogExporter({
-          url: `${process.env.OTEL_EXPORTER_OTLP_ENDPOINT}/v1/logs`,
-          headers: {
-            'Authorization': `Api-Token ${process.env.DYNATRACE_API_TOKEN}`,
-            'Content-Type': 'application/x-protobuf',
-          },
-        });
-        await logExporter.export([logRecord]);
-      },
-      async forceFlush() {},
-      async shutdown() {}
-    }
-  ],
-});
-
-logs.setGlobalLoggerProvider(loggerProvider);
-const otelLogger = logs.getLogger('fabrik-orders', '1.0.0');
+// Structured logging function that will be captured by OpenTelemetry
+function logEvent(level, message, attributes = {}) {
+  const logEntry = {
+    timestamp: new Date().toISOString(),
+    level: level,
+    message: message,
+    service: process.env.OTEL_SERVICE_NAME || 'fabrik-orders-otel',
+    version: process.env.OTEL_SERVICE_VERSION || '1.0.0',
+    namespace: process.env.OTEL_SERVICE_NAMESPACE || 'fabrik',
+    ...attributes
+  };
+  console.log(`[OTEL-LOG] ${JSON.stringify(logEntry)}`);
+}
 
 // Initialize OpenTelemetry with environment variables
 const sdk = new NodeSDK({
@@ -126,14 +107,10 @@ async function initializeDatabase() {
     `);
 
     console.log('Database tables initialized');
-    otelLogger.emit({
-      severityText: 'INFO',
-      body: 'Database tables initialized successfully',
-      attributes: {
-        'db.system': 'mysql',
-        'db.name': MYSQL_DATABASE,
-        'service.startup': 'true',
-      }
+    logEvent('INFO', 'Database tables initialized successfully', {
+      'db.system': 'mysql',
+      'db.name': MYSQL_DATABASE,
+      'service.startup': 'true',
     });
     span.setStatus({ code: 1 }); // OK
   } catch (error) {
@@ -249,28 +226,20 @@ app.post('/orders', async (req, res) => {
         });
         publishSpan.setStatus({ code: 1 });
         console.log('Order published to fulfillment queue:', orderId);
-        otelLogger.emit({
-          severityText: 'INFO',
-          body: `Order published to fulfillment queue: ${orderId}`,
-          attributes: {
-            'order.id': orderId,
-            'messaging.system': 'rabbitmq',
-            'messaging.destination': QUEUE_NAME,
-          }
+        logEvent('INFO', `Order published to fulfillment queue: ${orderId}`, {
+          'order.id': orderId,
+          'messaging.system': 'rabbitmq',
+          'messaging.destination': QUEUE_NAME,
         });
       } catch (mqError) {
         publishSpan.recordException(mqError);
         publishSpan.setStatus({ code: 2, message: mqError.message });
         console.error('Failed to publish to RabbitMQ:', mqError);
-        otelLogger.emit({
-          severityText: 'ERROR',
-          body: `Failed to publish to RabbitMQ: ${mqError.message}`,
-          attributes: {
-            'order.id': orderId,
-            'messaging.system': 'rabbitmq',
-            'error.name': mqError.name,
-            'error.message': mqError.message,
-          }
+        logEvent('ERROR', `Failed to publish to RabbitMQ: ${mqError.message}`, {
+          'order.id': orderId,
+          'messaging.system': 'rabbitmq',
+          'error.name': mqError.name,
+          'error.message': mqError.message,
         });
       } finally {
         publishSpan.end();
