@@ -72,3 +72,10 @@ jobs:
           file: ./src/fabrik-fulfillment/Dockerfile.oneagent
           push: true
           tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/fabrik-fulfillment-oneagent:latest
+
+      - name: Build and push nginx-otel image
+        uses: docker/build-push-action@v4
+        with:
+          context: ./src/nginx-otel
+          push: true
+          tags: ${{ env.REGISTRY }}/${{ env.OWNER }}/nginx-otel:latest
