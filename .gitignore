@@ -6,3 +6,4 @@ target/
 .vscode/
 .DS_Store
 secrets.sh
+k8s/secrets.yaml

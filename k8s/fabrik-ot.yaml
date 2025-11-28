@@ -80,6 +80,7 @@ spec:
           value: "3"
         ports:
         - containerPort: 9092
+        - containerPort: 9093
 ---
 apiVersion: v1
 kind: Service
@@ -91,6 +92,9 @@ spec:
     app: kafka
   ports:
   - port: 9092
+    name: plaintext
+  - port: 9093
+    name: controller
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -108,7 +112,9 @@ spec:
     spec:
       containers:
       - name: orders
-        image: ghcr.io/matthewreider/fabrik-orders:latest
+        image: ghcr.io/mreider/fabrik-orders:main
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\\n' ',' | sed 's/,$//') && java -jar app.jar"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -122,13 +128,19 @@ spec:
           value: "-javaagent:/app/opentelemetry-javaagent.jar"
         - name: OTEL_SERVICE_NAME
           value: orders
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp
         - name: OTEL_EXPORTER_OTLP_HEADERS
           valueFrom:
             secretKeyRef:
               name: dynatrace-otel-secret
               key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
         - name: OTEL_LOGS_EXPORTER
           value: otlp
         - name: OTEL_METRICS_EXPORTER
@@ -165,7 +177,9 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ghcr.io/matthewreider/fabrik-frontend:latest
+        image: ghcr.io/mreider/fabrik-frontend:main
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\\n' ',' | sed 's/,$//') && java -jar app.jar"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -179,13 +193,19 @@ spec:
           value: "-javaagent:/app/opentelemetry-javaagent.jar"
         - name: OTEL_SERVICE_NAME
           value: frontend
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp
         - name: OTEL_EXPORTER_OTLP_HEADERS
           valueFrom:
             secretKeyRef:
               name: dynatrace-otel-secret
               key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
         - name: OTEL_LOGS_EXPORTER
           value: otlp
         - name: OTEL_METRICS_EXPORTER
@@ -222,7 +242,9 @@ spec:
     spec:
       containers:
       - name: fulfillment
-        image: ghcr.io/matthewreider/fabrik-fulfillment:latest
+        image: ghcr.io/mreider/fabrik-fulfillment:main
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\\n' ',' | sed 's/,$//') && java -jar app.jar"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -236,13 +258,19 @@ spec:
           value: "-javaagent:/app/opentelemetry-javaagent.jar"
         - name: OTEL_SERVICE_NAME
           value: fulfillment
-        - name: OTEL_EXPORTER_OTLP_ENDPOINT
-          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp
         - name: OTEL_EXPORTER_OTLP_HEADERS
           valueFrom:
             secretKeyRef:
               name: dynatrace-otel-secret
               key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
         - name: OTEL_LOGS_EXPORTER
           value: otlp
         - name: OTEL_METRICS_EXPORTER
@@ -266,7 +294,172 @@ spec:
     spec:
       containers:
       - name: load-generator
-        image: ghcr.io/matthewreider/fabrik-load-generator:latest
+        image: ghcr.io/mreider/fabrik-load-generator:main
         env:
         - name: FRONTEND_URL
           value: http://frontend:8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: fabrik-ot
+spec:
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: ghcr.io/mreider/fabrik-inventory:main
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\n' ',' | sed 's/,$//') && java -jar app.jar"]
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/app/opentelemetry-javaagent.jar"
+        - name: OTEL_SERVICE_NAME
+          value: inventory
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-otel-secret
+              key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
+        - name: OTEL_LOGS_EXPORTER
+          value: otlp
+        - name: OTEL_METRICS_EXPORTER
+          value: otlp
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-receiver
+  namespace: fabrik-ot
+spec:
+  selector:
+    matchLabels:
+      app: shipping-receiver
+  template:
+    metadata:
+      labels:
+        app: shipping-receiver
+    spec:
+      containers:
+      - name: shipping-receiver
+        image: ghcr.io/mreider/fabrik-shipping-receiver:main
+        imagePullPolicy: Always
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\n' ',' | sed 's/,$//') && java -jar app.jar"]
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: SHIPPING_PROCESSOR_HOST
+          value: shipping-processor
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/app/opentelemetry-javaagent.jar"
+        - name: OTEL_SERVICE_NAME
+          value: shipping-receiver
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-otel-secret
+              key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
+        - name: OTEL_LOGS_EXPORTER
+          value: otlp
+        - name: OTEL_METRICS_EXPORTER
+          value: otlp
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-processor
+  namespace: fabrik-ot
+spec:
+  selector:
+    matchLabels:
+      app: shipping-processor
+  template:
+    metadata:
+      labels:
+        app: shipping-processor
+    spec:
+      containers:
+      - name: shipping-processor
+        image: ghcr.io/mreider/fabrik-shipping-processor:main
+        command: ["/bin/sh", "-c"]
+        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties | tr '\n' ',' | sed 's/,$//') && java -jar app.jar"]
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: JAVA_TOOL_OPTIONS
+          value: "-javaagent:/app/opentelemetry-javaagent.jar"
+        - name: OTEL_SERVICE_NAME
+          value: shipping-processor
+        - name: OTEL_EXPORTER_OTLP_HEADERS
+          valueFrom:
+            secretKeyRef:
+              name: dynatrace-otel-secret
+              key: auth-header
+        - name: OTEL_EXPORTER_OTLP_PROTOCOL
+          value: http/protobuf
+        - name: OTEL_EXPORTER_OTLP_TRACES_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/traces
+        - name: OTEL_EXPORTER_OTLP_METRICS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/metrics
+        - name: OTEL_EXPORTER_OTLP_LOGS_ENDPOINT
+          value: https://abl46885.dev.dynatracelabs.com/api/v2/otlp/v1/logs
+        - name: OTEL_LOGS_EXPORTER
+          value: otlp
+        - name: OTEL_METRICS_EXPORTER
+          value: otlp
+        - name: OTEL_TRACES_EXPORTER
+          value: otlp
+        ports:
+        - containerPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-processor
+  namespace: fabrik-ot
+spec:
+  selector:
+    app: shipping-processor
+  ports:
+  - port: 9090
+    name: grpc

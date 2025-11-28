@@ -80,6 +80,7 @@ spec:
           value: "3"
         ports:
         - containerPort: 9092
+        - containerPort: 9093
 ---
 apiVersion: v1
 kind: Service
@@ -91,6 +92,9 @@ spec:
     app: kafka
   ports:
   - port: 9092
+    name: plaintext
+  - port: 9093
+    name: controller
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -108,7 +112,7 @@ spec:
     spec:
       containers:
       - name: orders
-        image: ghcr.io/matthewreider/fabrik-orders:latest
+        image: ghcr.io/mreider/fabrik-orders:main
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -148,7 +152,7 @@ spec:
     spec:
       containers:
       - name: frontend
-        image: ghcr.io/matthewreider/fabrik-frontend:latest
+        image: ghcr.io/mreider/fabrik-frontend:main
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -188,7 +192,7 @@ spec:
     spec:
       containers:
       - name: fulfillment
-        image: ghcr.io/matthewreider/fabrik-fulfillment:latest
+        image: ghcr.io/mreider/fabrik-fulfillment:main
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -215,7 +219,97 @@ spec:
     spec:
       containers:
       - name: load-generator
-        image: ghcr.io/matthewreider/fabrik-load-generator:latest
+        image: ghcr.io/mreider/fabrik-load-generator:main
         env:
         - name: FRONTEND_URL
           value: http://frontend:8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: ghcr.io/mreider/fabrik-inventory:main
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-receiver
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: shipping-receiver
+  template:
+    metadata:
+      labels:
+        app: shipping-receiver
+    spec:
+      containers:
+      - name: shipping-receiver
+        image: ghcr.io/mreider/fabrik-shipping-receiver:main
+        imagePullPolicy: Always
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: SHIPPING_PROCESSOR_HOST
+          value: shipping-processor
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-processor
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: shipping-processor
+  template:
+    metadata:
+      labels:
+        app: shipping-processor
+    spec:
+      containers:
+      - name: shipping-processor
+        image: ghcr.io/mreider/fabrik-shipping-processor:main
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        ports:
+        - containerPort: 9090
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-processor
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: shipping-processor
+  ports:
+  - port: 9090
+    name: grpc

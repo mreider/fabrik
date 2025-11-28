@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [frontend, orders, fulfillment, load-generator]
+        service: [frontend, orders, fulfillment, load-generator, inventory, shipping-receiver, shipping-processor]
 
     steps:
       - name: Checkout repository

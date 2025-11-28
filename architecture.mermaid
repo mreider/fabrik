@@ -1,0 +1,50 @@
+flowchart TD
+    subgraph "External"
+        LG[Load Generator]
+    end
+
+    subgraph "Fabrik Application"
+        FE[Frontend Service]
+        OS[Orders Service]
+        FS[Fulfillment Service]
+        IS[Inventory Service]
+        SR[Shipping Receiver]
+        SP[Shipping Processor]
+        
+        DB[(Postgres DB)]
+        K[Kafka Broker]
+    end
+
+    %% Load Generation
+    LG -- "HTTP POST /order" --> FE
+
+    %% Frontend Flow
+    FE -- "JDBC Query (Check)" --> DB
+    FE -- "gRPC PlaceOrder" --> OS
+
+    %% Orders Flow
+    OS -- "JDBC Insert (Order)" --> DB
+    OS -- "Publish 'orders'" --> K
+
+    %% Fulfillment Flow (Async)
+    K -- "Consume 'orders'" --> FS
+    FS -- "JDBC Update (Status/Fraud)" --> DB
+
+    %% Inventory Flow (Async)
+    K -- "Consume 'orders'" --> IS
+    IS -- "JDBC Select/Update (Stock)" --> DB
+    IS -- "Publish 'inventory-reserved'" --> K
+
+    %% Shipping Flow (Async + Sync)
+    K -- "Consume 'inventory-reserved'" --> SR
+    SR -- "gRPC ShipOrder" --> SP
+    SP -- "JDBC Insert (Shipment)" --> DB
+
+    %% Styling
+    classDef service fill:#f9f,stroke:#333,stroke-width:2px;
+    classDef db fill:#ccf,stroke:#333,stroke-width:2px;
+    classDef queue fill:#ff9,stroke:#333,stroke-width:2px;
+    
+    class FE,OS,FS,IS,SR,SP service;
+    class DB db;
+    class K queue;

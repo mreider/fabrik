@@ -16,6 +16,9 @@ spec:
       namespaceSelector:
         matchLabels:
           dynatrace.com/inject: "true"
+      # Log monitoring is enabled by default in cloudNativeFullStack
+      # but we can control it via annotations on namespaces
+  logMonitoring: {}
   activeGate:
     capabilities:
       - routing
