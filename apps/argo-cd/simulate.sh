@@ -54,8 +54,8 @@ run_simulation() {
     # 3. Send Deployment Finished (Bad)
     send_sdlc_event "finished" "v2.0.0-bad"
     
-    echo "Bad version deployed. Waiting 5 minutes..."
-    sleep 300
+    echo "Bad version deployed. Waiting 1 minute..."
+    sleep 60
     
     echo "Rolling back..."
     
