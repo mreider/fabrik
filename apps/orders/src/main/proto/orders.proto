@@ -1,0 +1,21 @@
+syntax = "proto3";
+
+package com.fabrik.proto;
+
+option java_multiple_files = true;
+option java_package = "com.fabrik.proto";
+option java_outer_classname = "OrderProto";
+
+service OrderService {
+  rpc PlaceOrder (OrderRequest) returns (OrderResponse) {}
+}
+
+message OrderRequest {
+  string item = 1;
+  int32 quantity = 2;
+}
+
+message OrderResponse {
+  string orderId = 1;
+  string status = 2;
+}
