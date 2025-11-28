@@ -17,3 +17,13 @@ metadata:
     dynatrace.com/enrich: "true"
   annotations:
     dynatrace.com/log-monitoring: "false"
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: fabrik-oa-2
+  labels:
+    dynatrace.com/inject: "true"
+    dynatrace.com/enrich: "true"
+  annotations:
+    dynatrace.com/log-monitoring: "true"

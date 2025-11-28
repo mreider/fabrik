@@ -24,6 +24,15 @@ public class KafkaConsumerService {
 
     @KafkaListener(topics = "orders", groupId = "fulfillment-group")
     public void consume(String orderId) {
+        if ("true".equals(System.getenv("FAILURE_MODE"))) {
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new RuntimeException("org.springframework.dao.QueryTimeoutException: PreparedStatementCallback; SQL [UPDATE orders ...]; Query timeout; nested exception is org.postgresql.util.PSQLException: ERROR: canceling statement due to user request");
+        }
+
         // Treat the framework-created span as the "receive" span
         Span receiveSpan = Span.current();
         receiveSpan.setAttribute("messaging.operation.type", "receive");

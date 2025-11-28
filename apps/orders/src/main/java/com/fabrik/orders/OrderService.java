@@ -20,6 +20,15 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
 
     @Override
     public void placeOrder(OrderRequest request, StreamObserver<OrderResponse> responseObserver) {
+        if ("true".equals(System.getenv("FAILURE_MODE"))) {
+            try {
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new RuntimeException("org.springframework.dao.QueryTimeoutException: PreparedStatementCallback; SQL [INSERT INTO orders ...]; Query timeout; nested exception is org.postgresql.util.PSQLException: ERROR: canceling statement due to user request");
+        }
+
         String orderId = UUID.randomUUID().toString();
         
         OrderEntity order = new OrderEntity();
