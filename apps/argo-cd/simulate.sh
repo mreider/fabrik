@@ -20,7 +20,7 @@ send_sdlc_event() {
   "event.category": "task",
   "event.type": "deployment",
   "event.status": "${status}",
-  "event.provider": "ArgoCD",
+  "event.provider": "argocd",
   "cicd.deployment.name": "${name}",
   "cicd.deployment.status": "succeeded",
   "cicd.deployment.release_stage": "production",
@@ -34,7 +34,7 @@ send_sdlc_event() {
 EOF
 )
 
-    curl -X POST "${DT_API_URL}/v2/events/ingest" \
+    curl -X POST "${DT_API_URL}/v2/bizevents/ingest" \
          -H "Authorization: Api-Token ${DT_API_TOKEN}" \
          -H "Content-Type: application/json; charset=utf-8" \
          -d "$payload"
