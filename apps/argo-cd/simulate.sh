@@ -25,7 +25,11 @@ send_sdlc_event() {
   "cicd.deployment.status": "succeeded",
   "cicd.deployment.release_stage": "production",
   "service.version": "${version}",
-  "timestamp": "${timestamp}"
+  "timestamp": "${timestamp}",
+  "task.outcome": "succeeded",
+  "argocd.app.project.name": "fabrik",
+  "argocd.app.owner": "fabrik team",
+  "argocd.app.stage": "production"
 }
 EOF
 )
