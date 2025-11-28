@@ -42,7 +42,7 @@ run_simulation() {
     echo "Starting deployment simulation..."
     
     # 1. Send Deployment Started
-    send_sdlc_event "started" "v2.0.0-bad"
+    send_sdlc_event "started" "v2.0.0-green"
     
     # 2. Patch Deployments to Bad State
     echo "Patching deployments to FAILURE_MODE=true..."
@@ -52,15 +52,15 @@ run_simulation() {
     done
     
     # 3. Send Deployment Finished (Bad)
-    send_sdlc_event "finished" "v2.0.0-bad"
+    send_sdlc_event "finished" "v2.0.0-green"
     
-    echo "Bad version deployed. Waiting 1 minute..."
+    echo "Green version (bad) deployed. Waiting 1 minute..."
     sleep 60
     
     echo "Rolling back..."
     
     # 4. Send Deployment Started (Rollback)
-    send_sdlc_event "started" "v1.0.0-stable"
+    send_sdlc_event "started" "v1.0.0-blue"
 
     # 5. Patch Deployments to Good State
     echo "Patching deployments to FAILURE_MODE=false..."
@@ -70,7 +70,7 @@ run_simulation() {
     done
     
     # 6. Send Deployment Finished (Good)
-    send_sdlc_event "finished" "v1.0.0-stable"
+    send_sdlc_event "finished" "v1.0.0-blue"
     
     echo "Rollback complete."
 }

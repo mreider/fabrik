@@ -60,10 +60,10 @@ flowchart TD
 The demo includes a simulated "bad deployment" scenario managed by a fake ArgoCD controller.
 
 **What happens:**
-1.  **Deployment Event:** A "Deployment Started" event for version `v2.0.0-bad` is sent to Dynatrace.
+1.  **Deployment Event:** A "Deployment Started" event for version `v2.0.0-green` is sent to Dynatrace.
 2.  **Fault Injection:** The `orders` and `fulfillment` services are patched to introduce a 5-second latency and throw `QueryTimeoutException` (simulating DB lock/timeout issues).
 3.  **Duration:** This state lasts for **1 minute**.
-4.  **Rollback:** A "Deployment Finished" event for `v2.0.0-bad` is sent, followed by a rollback to `v1.0.0-stable` (clearing the faults).
+4.  **Rollback:** A "Deployment Finished" event for `v2.0.0-green` is sent, followed by a rollback to `v1.0.0-blue` (clearing the faults).
 
 **How to trigger:**
 

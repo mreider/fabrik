@@ -45,6 +45,7 @@ spec:
       containers:
       - name: argo
         image: ghcr.io/mreider/fabrik-argo-cd:main
+        imagePullPolicy: Always
         env:
         - name: DT_API_URL
           value: "https://abl46885.dev.dynatracelabs.com/api"
