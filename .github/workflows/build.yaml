@@ -18,7 +18,7 @@ jobs:
 
     strategy:
       matrix:
-        service: [frontend, orders, fulfillment, load-generator, inventory, shipping-receiver, shipping-processor, argo-cd]
+        service: [frontend, orders, fulfillment, fab-proxy, inventory, shipping-receiver, shipping-processor, argo-cd]
 
     steps:
       - name: Checkout repository

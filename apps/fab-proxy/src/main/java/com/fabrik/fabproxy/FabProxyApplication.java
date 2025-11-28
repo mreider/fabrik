@@ -1,4 +1,4 @@
-package com.fabrik.loadgen;
+package com.fabrik.fabproxy;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -13,12 +13,12 @@ import org.slf4j.LoggerFactory;
 
 @SpringBootApplication
 @EnableScheduling
-public class LoadGeneratorApplication {
+public class FabProxyApplication {
 
-    private static final Logger logger = LoggerFactory.getLogger(LoadGeneratorApplication.class);
+    private static final Logger logger = LoggerFactory.getLogger(FabProxyApplication.class);
 
     public static void main(String[] args) {
-        SpringApplication.run(LoadGeneratorApplication.class, args);
+        SpringApplication.run(FabProxyApplication.class, args);
     }
 
     @Bean

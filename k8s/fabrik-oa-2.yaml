@@ -206,20 +206,20 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: load-generator
+  name: fab-proxy
   namespace: fabrik-oa-2
 spec:
   selector:
     matchLabels:
-      app: load-generator
+      app: fab-proxy
   template:
     metadata:
       labels:
-        app: load-generator
+        app: fab-proxy
     spec:
       containers:
-      - name: load-generator
-        image: ghcr.io/mreider/fabrik-load-generator:main
+      - name: fab-proxy
+        image: ghcr.io/mreider/fabrik-fab-proxy:main
         env:
         - name: FRONTEND_URL
           value: http://frontend:8080

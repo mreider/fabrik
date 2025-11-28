@@ -5,7 +5,7 @@
 ```mermaid
 flowchart TD
     subgraph "External"
-        LG[Load Generator]
+        LG[Fab Proxy]
     end
 
     subgraph "Fabrik Application"
