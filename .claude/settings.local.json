@@ -2,7 +2,16 @@
   "permissions": {
     "allow": [
       "Bash(kubectl get pods:*)",
-      "Bash(kubectl logs:*)"
+      "Bash(kubectl logs:*)",
+      "Bash(kubectl rollout restart:*)",
+      "Bash(kubectl exec:*)",
+      "Bash(kubectl get:*)",
+      "Bash(for service in orders fulfillment inventory shipping-receiver shipping-processor frontend)",
+      "Bash(do)",
+      "Bash(echo:*)",
+      "Bash(done)",
+      "Bash(kubectl delete pod:*)",
+      "Bash(kubectl wait:*)"
     ],
     "deny": [],
     "ask": []
