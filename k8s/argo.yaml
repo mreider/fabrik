@@ -54,3 +54,12 @@ spec:
             secretKeyRef:
               name: argo-secrets
               key: apiToken
+        volumeMounts:
+        - name: simulation-script
+          mountPath: /app/simulate.sh
+          subPath: simulate.sh
+      volumes:
+      - name: simulation-script
+        configMap:
+          name: argo-simulation-script
+          defaultMode: 0755

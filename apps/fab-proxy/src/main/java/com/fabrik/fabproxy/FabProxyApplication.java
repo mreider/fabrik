@@ -36,6 +36,10 @@ public class FabProxyApplication {
             // Jitter: random sleep 0-2s to avoid perfectly regular pattern
             Thread.sleep(random.nextInt(2000));
 
+            int totalRequests = 0;
+            int successfulRequests = 0;
+            int failedRequests = 0;
+
             // Randomly choose between read-heavy and write-heavy patterns
             int pattern = random.nextInt(100);
 
@@ -43,30 +47,56 @@ public class FabProxyApplication {
                 // Read-heavy: multiple queries of current orders
                 int reads = 1 + random.nextInt(5);
                 for (int i = 0; i < reads; i++) {
-                    restTemplate.getForObject(frontendUrl + "/", String.class);
+                    totalRequests++;
+                    try {
+                        String response = restTemplate.getForObject(frontendUrl + "/", String.class);
+                        successfulRequests++;
+                        logger.debug("GET / response: {}", response != null ? "OK" : "null");
+                    } catch (Exception e) {
+                        failedRequests++;
+                        logger.warn("GET / failed: {}", e.getMessage());
+                    }
                 }
             } else {
                 // Write path: place one or more orders
                 int writes = 1 + random.nextInt(3);
                 for (int i = 0; i < writes; i++) {
-                    String item = "Item-" + random.nextInt(500);
-                    int quantity = 1 + random.nextInt(5);
-                    restTemplate.postForObject(frontendUrl + "/order?item=" + item + "&quantity=" + quantity, null, String.class);
+                    totalRequests++;
+                    try {
+                        String item = "Item-" + random.nextInt(500);
+                        int quantity = 1 + random.nextInt(5);
+                        String response = restTemplate.postForObject(frontendUrl + "/order?item=" + item + "&quantity=" + quantity, null, String.class);
+                        successfulRequests++;
+                        logger.debug("POST /order response: {}", response != null ? "OK" : "null");
+                    } catch (Exception e) {
+                        failedRequests++;
+                        logger.warn("POST /order failed: {}", e.getMessage());
+                    }
                 }
             }
 
             // Occasionally spike load to simulate bursts
             if (random.nextInt(100) < 5) { // ~5% of the time
                 for (int i = 0; i < 10; i++) {
-                    String item = "Promo-" + random.nextInt(1000);
-                    int quantity = 1 + random.nextInt(10);
-                    restTemplate.postForObject(frontendUrl + "/order?item=" + item + "&quantity=" + quantity, null, String.class);
+                    totalRequests++;
+                    try {
+                        String item = "Promo-" + random.nextInt(1000);
+                        int quantity = 1 + random.nextInt(10);
+                        String response = restTemplate.postForObject(frontendUrl + "/order?item=" + item + "&quantity=" + quantity, null, String.class);
+                        successfulRequests++;
+                        logger.debug("POST /order (spike) response: {}", response != null ? "OK" : "null");
+                    } catch (Exception e) {
+                        failedRequests++;
+                        logger.warn("POST /order (spike) failed: {}", e.getMessage());
+                    }
                 }
             }
 
-            logger.info("Generated variable load pattern at {}", System.currentTimeMillis());
+            logger.info("Load generation: {} total, {} successful, {} failed requests at {}",
+                       totalRequests, successfulRequests, failedRequests, System.currentTimeMillis());
+
         } catch (Exception e) {
-            logger.error("Error generating load: {}", e.getMessage());
+            logger.error("Critical error in load generation: {}", e.getMessage(), e);
         }
     }
 }

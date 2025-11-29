@@ -1,0 +1,134 @@
+{
+  "title": "Lifecycle Events Workflow",
+  "tasks": {
+    "js_set_parameters": {
+      "name": "js_set_parameters",
+      "input": {
+        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\nimport { getEnvironmentUrl } from \"@dynatrace-sdk/app-environment\"\n\nexport default async function () {\n  const ex = await execution()\n  const eventContext = ex.event()\n  const now = new Date()\n\n  const commitHash = eventContext[\"vcs.ref.base.revision\"]\n  const envUrl = getClassicUrl()\n  const argocdUrl = \"https://argo-cd.readthedocs.io/en/stable/\"\n\n  return {\n    // GitHub displays first 7 characters of the commitHash\n    commitHash: commitHash.substring(0, 6),\n    envUrl: envUrl,\n    argocdUrl: argocdUrl,\n  }\n}\n\nfunction getClassicUrl(): string {\n  const url = getEnvironmentUrl()\n  const parts = url.split(\".\")\n  if (parts[1] === \"apps\") {\n    return url.replace(\"apps\", \"live\")\n  }\n  return url.replace(\"apps.\", \"\")\n}\n"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "description": "Set Workflow-wide defaults that can be used by any task",
+      "predecessors": []
+    },
+    "js_validate_entity": {
+      "name": "js_validate_entity",
+      "input": {
+        "script": "import { queryExecutionClient } from \"@dynatrace-sdk/client-query\"\nimport { execution } from \"@dynatrace-sdk/automation-utils\"\n\nexport default async function ({ execution_id }) {\n  const ex = await execution(execution_id)\n  const eventContext = ex.event()\n  const timeout = 10\n\n  // Query entities in the fabrik namespaces\n  const query =\n    'fetch dt.entity.cloud_application_instance \\\n                | fields entity.name, id, namespaceName, runningContainersCount, desiredContainersCount, `dt.entity.cloud_application` = instance_of[`dt.entity.cloud_application`] \\\n                | filter in(namespaceName, \"fabrik-oa\", \"fabrik-ot\", \"fabrik-oa-2\") \\\n                | fieldsAdd ready = if(runningContainersCount == desiredContainersCount, true, else: false) \\\n                | filter ready \\\n                | fieldsAdd workload_id = dt.entity.cloud_application \\\n                | fieldsAdd workload_name = entityName(dt.entity.cloud_application) \\\n                | summarize {podCount = count(), podNames = collectDistinct(entity.name), podIds = collectDistinct(id)}, by: {namespaceName, workload_id, workload_name, ready}'\n\n  const response = await queryExecutionClient.queryExecute({\n    body: {\n      query,\n      requestTimeoutMilliseconds: timeout * 1000,\n      fetchTimeoutSeconds: timeout,\n    },\n  })\n\n  if (response.result.records == null || response.result.records.length == 0) {\n    throw new Error(`No Entity returned yet`)\n  }\n\n  return response.result.records\n}\n"
+      },
+      "retry": {
+        "count": 10,
+        "delay": 60,
+        "failedLoopIterationsOnly": true
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "conditions": {
+        "else": "STOP",
+        "custom": "",
+        "states": {
+          "js_set_parameters": "SUCCESS"
+        }
+      },
+      "description": "Query deployment entity and validate that it is observed with Dynatrace",
+      "predecessors": [
+        "js_set_parameters"
+      ]
+    },
+    "send_deployment_events": {
+      "name": "send_deployment_events",
+      "input": {
+        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\nimport { eventsClient } from \"@dynatrace-sdk/client-classic-environment-v2\"\n\nconst PARAMETERS_TASK = \"js_set_parameters\"\n\nexport default async function () {\n  const ex = await execution()\n  const parameters = await ex.result(PARAMETERS_TASK)\n  const eventContext = ex.event()\n\n  const commitHash = parameters[\"commitHash\"]\n  const argocdUrl = parameters[\"argocdUrl\"]\n  const version = eventContext[\"service.version\"]\n  const deploymentName = eventContext[\"cicd.deployment.name\"]\n\n  // Target all fabrik namespaces\n  const namespaces = [\"fabrik-oa\", \"fabrik-ot\", \"fabrik-oa-2\"]\n  \n  for (const ns of namespaces) {\n      const entitySelectorCAI = createEntitySelector(\n        \"CLOUD_APPLICATION_INSTANCE\",\n        `namespaceName(${ns})`\n      )\n      \n      const deploymentEventCAIPayload = createDeploymentEventPayload(\n        entitySelectorCAI,\n        eventContext,\n        commitHash,\n        argocdUrl,\n        version,\n        deploymentName\n      )\n      \n      await sendDeploymentEvent(deploymentEventCAIPayload)\n  }\n\n  return { status: \"Sent deployment events for all namespaces\" }\n}\n\nasync function sendDeploymentEvent(body) {\n  const sendEvent = await eventsClient.createEvent({ body })\n\n  return sendEvent?.eventIngestResults?.every((res) => res.status === \"OK\")\n    ? \"SUCCESS\"\n    : \"FAIL\"\n}\n\nfunction createEntitySelector(type, criteria) {\n  return `type(${type}),${criteria}`\n}\n\nfunction createDeploymentEventPayload(\n  entitySelector,\n  eventContext,\n  commitHash,\n  argocdUrl,\n  version,\n  deploymentName\n) {\n  return {\n    eventType: \"CUSTOM_DEPLOYMENT\",\n    title: `ArgoCD Sync: ${deploymentName}`,\n    entitySelector: entitySelector,\n    properties: {\n      source: \"argocd\",\n      \"event.description\": `Deployment ${deploymentName} version ${version}`,\n      eventProvider: \"lifecycle-events-workflow\",\n      argocdUrl: argocdUrl,\n      version: version,\n    },\n  }\n}\n"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "active": true,
+      "position": {
+        "x": 0,
+        "y": 3
+      },
+      "conditions": {
+        "custom": "{{ result(\"js_validate_entity\") | selectattr(\"ready\", \"==\", true) | list }}",
+        "states": {
+          "js_validate_entity": "SUCCESS"
+        }
+      },
+      "description": "Run custom JavaScript code.",
+      "predecessors": [
+        "js_validate_entity"
+      ]
+    },
+    "js_send_dt_failed_events": {
+      "name": "js_send_dt_failed_events",
+      "input": {
+        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\n\nconst PARAMETERS_TASK = \"js_set_parameters\"\nconst VALIDATE_ENTITY_TASK = \"js_validate_entity\"\n\nexport default async function ({ execution_id }) {\n  const ex = await execution(execution_id)\n  // parameters\n  const parameters = await ex.result(PARAMETERS_TASK)\n  // event trigger context\n  const eventContext = ex.event()\n  // previous task result\n  const validateResult = await ex.result(VALIDATE_ENTITY_TASK)\n  const token = await getApiToken(ex.input.credentialsId)\n  const envUrl = parameters[\"envUrl\"]\n  const commitHash = parameters[\"commitHash\"]\n  const argocdUrl = parameters[\"argocdUrl\"]\n\n  // Send an SDLC Event\n  const sdlcEventPayload = {\n    gitUrl: git_url,\n    owner: eventContext[\"argocd.app.owner\"],\n    argocd: \"argocd\",\n    app: eventContext[\"argocd.app.name\"],\n    stage: eventContext[\"argocd.app.stage\"],\n    version: eventContext[\"argocd.app.version\"],\n    stage: eventContext[\"argocd.app.stage\"],\n    project: eventContext[\"argocd.app.project.name\"],\n    \"source.event.timestamp\": eventContext.timestamp,\n    \"source.event.id\": eventContext[\"event.id\"],\n    \"source.event.type\": eventContext[\"event.type\"],\n    \"entity.id\": validateResult.workload_id,\n    \"entity.name\": validateResult.workload_name,\n    \"dt.source.entity\": validateResult.workload_id,\n    \"event.provider\": \"lifecycle-events-workflow\",\n    \"event.type\": \"app-deployed.validated\",\n    \"event.category\": \"task\",\n    \"event.kind\": \"SDLC_EVENT\",\n    \"event.status\": \"failed\",\n    status: \"failed\",\n    \"target.namespace\": eventContext[\"deployment.namespace\"],\n    argocdUrl: argocdUrl,\n    \"timeframe.from\": \"now()-5m\",\n    \"timeframe.to\": \"now()\",\n    \"vcs.repository.ref.name\": eventContext[\"vcs.ref.base.name\"],\n    \"vcs.repository.url.full\": eventContext[\"vcs.repository.url.full\"],\n    \"deployment.release.stage\": eventContext[\"deployment.release.stage\"],\n    \"deployment.release.product\": eventContext[\"deployment.release.product\"],\n    \"deployment.release.version\": eventContext[\"deployment.release.version\"],\n    \"vcs.repository.ref.revision\": eventContext[\"vcs.ref.base.revision\"],\n    execution_context: {\n      commit: commitHash,\n      version: eventContext[\"argocd.app.version\"],\n      owner: eventContext[\"argocd.app.owner\"],\n      stage: eventContext[\"argocd.app.stage\"],\n      project: eventContext[\"argocd.app.project.name\"],\n      app: eventContext[\"argocd.app.name\"],\n      component: eventContext[\"argocd.app.name\"],\n      workloadName: validateResult.workload_name,\n      workloadId: validateResult.workload_id,\n      id: crypto.randomUUID().toString(),\n    },\n  }\n\n  console.log(\"sdlcEventPayload: \")\n  console.log(sdlcEventPayload)\n\n  const resultSDLCEvent = await fetch(\n    `${envUrl}/platform/ingest/v1/events.sdlc`,\n    {\n      method: \"POST\",\n      headers: {\n        \"Content-Type\": \"application/json\",\n        Authorization: `Api-Token ${token}`,\n      },\n      body: JSON.stringify(sdlcEventPayload),\n    }\n  )\n\n  console.log(`SDLCEvent Status: ${resultSDLCEvent.status}`)\n\n  return {\n    SdlcEventPayload: sdlcEventPayload,\n    SdlcEventResult: resultSDLCEvent.status,\n  }\n}\n\nasync function getApiToken(credentialId) {\n  const res = (await credentialVaultClient.getCredentialsDetails({\n    id: credentialId,\n  })) as CredentialsDetailsTokenResponseElement\n\n  return res.token\n}\n"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "active": true,
+      "position": {
+        "x": -1,
+        "y": 3
+      },
+      "conditions": {
+        "states": {
+          "js_validate_entity": "NOK"
+        }
+      },
+      "description": "Sends Dynatrace SDLC Event for this failed deployment",
+      "predecessors": [
+        "js_validate_entity"
+      ]
+    },
+    "js_send_dt_success_events": {
+      "name": "js_send_dt_success_events",
+      "input": {
+        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\nimport {\n  credentialVaultClient,\n  CredentialsDetailsTokenResponseElement,\n} from \"@dynatrace-sdk/client-classic-environment-v2\"\n\nconst PARAMETERS_TASK = \"js_set_parameters\"\n\nexport default async function ({ execution_id, loopItemValue }) {\n  const ex = await execution(execution_id)\n  const parameters = await ex.result(PARAMETERS_TASK)\n  const token = await getApiToken(ex.input.credentialsId)\n  const envUrl = parameters[\"envUrl\"]\n  const argocdUrl = parameters[\"argocdUrl\"]\n  const eventContext = ex.event()\n  const validateResult = loopItemValue\n\n  const commitHash = parameters[\"commitHash\"]\n  const version = eventContext[\"service.version\"]\n\n  // Send an SDLC Event\n  const sdlcEventPayload = {\n    source: \"argocd\",\n    version: version,\n    \"source.event.timestamp\": eventContext.timestamp,\n    \"source.event.id\": eventContext[\"event.id\"],\n    \"source.event.type\": eventContext[\"event.type\"],\n    \"entity.id\": validateResult.workload_id,\n    \"entity.name\": validateResult.workload_name,\n    \"dt.source.entity\": validateResult.workload_id,\n    \"event.provider\": \"lifecycle-events-workflow\",\n    \"event.type\": \"app-deployed.validated\",\n    \"event.category\": \"task\",\n    \"event.kind\": \"SDLC_EVENT\",\n    \"event.status\": \"succeeded\",\n    status: \"succeeded\",\n    \"target.namespace\": validateResult.namespaceName,\n    argocdUrl: argocdUrl,\n    \"timeframe.from\": \"now()-5m\",\n    \"timeframe.to\": \"now()\",\n    execution_context: {\n      commit: commitHash,\n      version: version,\n      workloadName: validateResult.workload_name,\n      workloadId: validateResult.workload_id,\n      id: crypto.randomUUID().toString(),\n    },\n  }\n\n  console.log(sdlcEventPayload)\n\n  const resultSDLCEvent = await fetch(\n    `${envUrl}/platform/ingest/v1/events.sdlc`,\n    {\n      method: \"POST\",\n      headers: {\n        \"Content-Type\": \"application/json\",\n        Authorization: `Api-Token ${token}`,\n      },\n      body: JSON.stringify(sdlcEventPayload),\n    }\n  )\n\n  console.log(`SDLCEvent Status: ${resultSDLCEvent.status}`)\n\n  return {\n    SdlcEventPayload: sdlcEventPayload,\n    SdlcEventResult: resultSDLCEvent.status,\n  }\n}\n\nasync function getApiToken(credentialId) {\n  const res = (await credentialVaultClient.getCredentialsDetails({\n    id: credentialId,\n  })) as CredentialsDetailsTokenResponseElement\n\n  return res.token\n}\n"
+      },
+      "action": "dynatrace.automations:run-javascript",
+      "active": true,
+      "position": {
+        "x": 1,
+        "y": 3
+      },
+      "conditions": {
+        "custom": "{{ result(\"js_validate_entity\") | selectattr(\"ready\", \"==\", true) | list }}",
+        "states": {
+          "js_validate_entity": "SUCCESS"
+        }
+      },
+      "withItems": "item in {{ result(\"js_validate_entity\") }}",
+      "concurrency": 1,
+      "description": "Sends Dynatrace SDLC Event and Deployment Event for this finished deployment",
+      "predecessors": [
+        "js_validate_entity"
+      ]
+    }
+  },
+  "description": "This workflow sends notifications back to ArgoCD Notifications Plugin when a new BizEvent is received from Argo",
+  "trigger": {
+    "eventTrigger": {
+      "isActive": true,
+      "filterQuery": "event.kind == \"SDLC_EVENT\" and matchesValue(event.provider, \"ArgoCD\") and matchesValue(event.status, \"finished\") and startsWith(cicd.deployment.name, \"Deploy Services\")",
+      "uniqueExpression": null,
+      "triggerConfiguration": {
+        "type": "event",
+        "value": {
+          "query": "event.kind == \"SDLC_EVENT\" and matchesValue(event.provider, \"ArgoCD\") and matchesValue(event.status, \"finished\") and startsWith(cicd.deployment.name, \"Deploy Services\")",
+          "eventType": "events"
+        }
+      }
+    }
+  },
+  "schemaVersion": 3,
+  "result": null,
+  "input": {
+    "credentialsId": "REPLACE_WITH_YOUR_CREDENTIAL_ID"
+  },
+  "hourlyExecutionLimit": 1000,
+  "type": "STANDARD"
+}

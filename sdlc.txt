@@ -1,0 +1,614 @@
+Software development lifecycle (SDLC) events
+Latest Dynatrace
+Reference
+Published Nov 18, 2025
+Software development lifecycle events are used to describe various stages throughout the lifecycle of a software component.
+
+Such events can include, but are not limited to
+
+CI/CD pipeline events
+Task events emitted from a CI/CD pipeline
+Task events occurring outside a CI/CD pipeline
+Software development lifecycle events are mainly composed of the following namespaces
+
+Artifact (artifact.* namespace)
+Continuous Integration/Continuous Deployment (cicd.* namespace)
+Deployment Attributes (deployment.* namespace)
+VCS Repository (vcs.* namespace)
+SDLC build finished task event
+The SDLC task event "build finished" is generated when a build task is finished in the CI/CD system.
+
+Attribute	Type	Description	Examples
+artifact.id	string	experimental
+The identifier of the software artifact, typically the name of the artifact.	carts-service
+artifact.name	string	experimental
+The human-readable name of the software artifact.	Carts service
+artifact.version	string	experimental
+The version of the software artifact, typically in Semantic Versioning﻿ format.	0.1.1
+cicd.pipeline.id	string	experimental
+The CI/CD pipeline's identifier, which is unique within one CI/CD system.	12345
+cicd.pipeline.run.id	string	experimental
+An identifier for a pipeline run, which is unique within one CI/CD system.	9876
+duration	duration	experimental
+The duration of the build task in nanoseconds.	42
+end_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the build task was finished.	1649822520123123165
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to finished for SDLC build finished task events.	finished
+event.type	string	experimental
+The value must be set to build for any task event describing a build in the software development lifecycle.
+Tags: permission	build
+event.version	string	experimental
+The version of the SDLC build finished task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the build task was started.	1649822520123123123
+task.id	string	experimental
+The unique task identifier.	123
+task.name	string	experimental
+A human-readable name for a task.	CI build my-service
+task.outcome	string	experimental
+Outcome of a task run.	Success; Warning; Failure; Error; Skipped; Canceled; TimedOut; NotApplicable
+task.queued.duration	duration	experimental
+How long was the tasks queued before it was started, in nanoseconds.	1234
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+SDLC build started task event
+The SDLC task event "build started" is generated when a build task is started in the CI/CD system.
+
+Attribute	Type	Description	Examples
+cicd.pipeline.id	string	experimental
+The CI/CD pipeline's identifier, which is unique within one CI/CD system.	12345
+cicd.pipeline.run.id	string	experimental
+An identifier for a pipeline run, which is unique within one CI/CD system.	9876
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to started for SDLC build started task events.	started
+event.type	string	experimental
+The value must be set to build for any task event describing a build in the software development lifecycle.
+Tags: permission	build
+event.version	string	experimental
+The version of the SDLC build started task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the build task was started.	1649822520123123123
+task.id	string	experimental
+The unique task identifier.	123
+task.name	string	experimental
+A human-readable name for a task.	CI build my-service
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+SDLC change finished task event
+The SDLC task event "change finished" is generated when a change is closed in the version control system. A change task is the platform-agnostic term for a pull request in GitHub or a merge request in GitLab.
+
+Attribute	Type	Description	Examples
+duration	duration	experimental
+How long the change was open in the version control system, in nanoseconds.	42
+end_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the change was closed in the version control system.	1649822520123123165
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to finished for SDLC change finished task events.	finished
+event.type	string	experimental
+The value must be set to change for any task event describing a change in the software development lifecycle.
+Tags: permission	change
+event.version	string	experimental
+The version of the SDLC change finished task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the change was opened in the version control system.	1649822520123123123
+task.id	string	experimental
+The internal identifier of the change tasks. It is typically unique per repository and generated by the version control system itself.	871023010
+task.name	string	experimental
+A human-readable name for a task.	[Pull Request] docs: Update of Readme.md
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+vcs.change.id	string	experimental
+The identifier of the change, for example, pull request ID or merge request ID. It is typically unique per repository and generated by the version control system itself.	1234
+vcs.change.state	string	experimental
+The state of the change, for example, the state of a pull request or merge request.	closed; merged
+vcs.change.title	string	experimental
+The human-readable title of the change, for example, pull request title or merge request title. 2	docs: Update of Readme.md
+vcs.change.url.full	string	experimental
+The full URL to the change, for example, the full URL to the pull request or merge request.	https://github.com/dynatrace-oss/terraform-provider-dynatrace/pull/20
+vcs.ref.base.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 3	my-branch-name
+vcs.ref.base.revision	string	experimental
+The revision in the repository. For Git this is a synonym for a commit hash, whereas in SVN it is a revision number. 4	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.ref.head.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 5	my-branch-name
+vcs.ref.head.revision	string	experimental
+The revision in the repository. For Git, this is a synonym for a commit hash, whereas in SVN, it is a revision number. 6	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.repository.name	string	experimental
+The human-readable name of the repository. It should not include any additional identifiers like GitLab group or GitHub organization. 7	dynatrace-configuration-as-code
+vcs.repository.url.full	string	experimental
+The repository's full URL. 8	https://github.com/dynatrace-oss/terraform-provider-dynatrace
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+2
+The value is similar to task.name.
+
+3
+The base name refers to the starting point of a change. For example, if a feature branch was created from main, main is the base reference of type branch.
+
+4
+The base revision refers to the starting revision of a change. For example, if a branch was created from a certain commit, this commit is the base revision.
+
+5
+The head name refers to the current reference's name. For example, if main is currently checked out, the head name is main.
+
+6
+The head revision refers to the currently referenced revision.
+
+7
+Be aware that the repository name might clash with forked repositories.
+
+8
+For Git VCS, this should not include the .git URL suffix.
+
+SDLC change started task event
+The SDLC task event "change started" is generated when a change is openend in the version control system. A change task is the platform-agnostic term for a pull request in GitHub or a merge request in GitLab.
+
+Attribute	Type	Description	Examples
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to started for SDLC change started task events.	started
+event.type	string	experimental
+The value must be set to change for any task event describing a change in the software development lifecycle.
+Tags: permission	change
+event.version	string	experimental
+The version of the SDLC change started task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the change was opened in the version control system.	1649822520123123123
+task.id	string	experimental
+The internal identifier of the change tasks. It is typically unique per repository and generated by the version control system itself.	871023010
+task.name	string	experimental
+A human-readable name for a task.	[Pull Request] docs: Update of Readme.md
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+vcs.change.id	string	experimental
+The identifier of the change, for example, pull request ID or merge request ID. It is typically unique per repository and generated by the version control system itself.	1234
+vcs.change.state	string	experimental
+The state of the change, for example, the state of a pull request or merge request.	wip; open; reopened
+vcs.change.title	string	experimental
+The human-readable title of the change, for example, pull request title or merge request title. 2	docs: Update of Readme.md
+vcs.change.url.full	string	experimental
+The full URL to the change, for example, the full URL to the pull request or merge request.	https://github.com/dynatrace-oss/terraform-provider-dynatrace/pull/20
+vcs.ref.base.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 3	my-branch-name
+vcs.ref.base.revision	string	experimental
+The revision in the repository. For Git this is a synonym for a commit hash, whereas in SVN it is a revision number. 4	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.ref.head.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 5	my-branch-name
+vcs.ref.head.revision	string	experimental
+The revision in the repository. For Git, this is a synonym for a commit hash, whereas in SVN, it is a revision number. 6	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.repository.name	string	experimental
+The human-readable name of the repository. It should not include any additional identifiers like GitLab group or GitHub organization. 7	dynatrace-configuration-as-code
+vcs.repository.url.full	string	experimental
+The repository's full URL. 8	https://github.com/dynatrace-oss/terraform-provider-dynatrace
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+2
+The value is similar to task.name.
+
+3
+The base name refers to the starting point of a change. For example, if a feature branch was created from main, main is the base reference of type branch.
+
+4
+The base revision refers to the starting revision of a change. For example, if a branch was created from a certain commit, this commit is the base revision.
+
+5
+The head name refers to the current reference's name. For example, if main is currently checked out, the head name is main.
+
+6
+The head revision refers to the currently referenced revision.
+
+7
+Be aware that the repository name might clash with forked repositories.
+
+8
+For Git VCS, this should not include the .git URL suffix.
+
+SDLC deployment finished task event
+The SDLC task event "deployment finished" is generated when a deployment task is finished.
+
+Attribute	Type	Description	Examples
+cicd.deployment.id	string	experimental
+The identifier of the deployment.	1337
+cicd.deployment.name	string	experimental
+The name of the deployment.	deploy frontend app; deploy cart service
+cicd.deployment.namespace	string	experimental
+The destination namespace where the deployment resource is created.	default
+cicd.deployment.release_stage	string	experimental
+The name of the deployment environment, also known as deployment tier.	development; staging; production
+cicd.deployment.server.url.full	string	experimental
+The deployment server URL.	https://kubernetes.default.svc
+cicd.deployment.service.id	string	experimental
+The identifier of the service that is deployed.	92ba59d6-379e-4ffd-a67e-d544a9c24dea
+cicd.deployment.status	string	experimental
+The status of the deployment.	failed; succeeded
+duration	duration	experimental
+How long the deployment took.	42
+end_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the deployment task was finished.	1649822520123123165
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	argocd
+event.status	string	experimental
+The value must be set to finished for SDLC deployment finished task events.	finished
+event.type	string	experimental
+The value must be set to deployment for any task event describing a deployment in the software development lifecycle.
+Tags: permission	deployment
+event.version	string	experimental
+The version of the SDLC deployment finished task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the deployment task was started.	1649822520123123123
+task.id	string	experimental
+The unique task identifier.	123
+task.name	string	experimental
+A human-readable name for a task.	CI build my-service
+task.outcome	string	experimental
+The outcome of the deployment task.	Success; Error; Failure
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+vcs.ref.base.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 2	my-branch-name
+vcs.ref.base.revision	string	experimental
+The revision in the repository. For Git this is a synonym for a commit hash, whereas in SVN it is a revision number. 3	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.repository.url.full	string	experimental
+The repository's full URL. 4	https://github.com/dynatrace-oss/terraform-provider-dynatrace
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+2
+The base name refers to the starting point of a change. For example, if a feature branch was created from main, main is the base reference of type branch.
+
+3
+The base revision refers to the starting revision of a change. For example, if a branch was created from a certain commit, this commit is the base revision.
+
+4
+For Git VCS, this should not include the .git URL suffix.
+
+SDLC deployment started task event
+The SDLC task event "deployment started" is generated when a deployment task is started.
+
+Attribute	Type	Description	Examples
+cicd.deployment.id	string	experimental
+The identifier of the deployment.	1337
+cicd.deployment.name	string	experimental
+The name of the deployment.	deploy frontend app; deploy cart service
+cicd.deployment.namespace	string	experimental
+The destination namespace where the deployment resource is created.	default
+cicd.deployment.release_stage	string	experimental
+The name of the deployment environment, also known as deployment tier.	development; staging; production
+cicd.deployment.server.url.full	string	experimental
+The deployment server URL.	https://kubernetes.default.svc
+cicd.deployment.service.id	string	experimental
+The identifier of the service that is deployed.	92ba59d6-379e-4ffd-a67e-d544a9c24dea
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC task events.	task
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	argocd
+event.status	string	experimental
+The value must be set to started for SDLC deployment started task events.	started
+event.type	string	experimental
+The value must be set to deployment for any task event describing a deployment in the software development lifecycle.
+Tags: permission	deployment
+event.version	string	experimental
+The version of the SDLC deployment started task event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the deployment task was started.	1649822520123123123
+task.id	string	experimental
+The unique task identifier.	123
+task.name	string	experimental
+A human-readable name for a task.	CI build my-service
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+vcs.ref.base.name	string	experimental
+The name of the reference in the repository. This can be a branch name or a tag name. 2	my-branch-name
+vcs.ref.base.revision	string	experimental
+The revision in the repository. For Git this is a synonym for a commit hash, whereas in SVN it is a revision number. 3	d4322ab6cba38d21ad83c9de304a6a214ecf2cdc; main; 1337
+vcs.repository.url.full	string	experimental
+The repository's full URL. 4	https://github.com/dynatrace-oss/terraform-provider-dynatrace
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+2
+The base name refers to the starting point of a change. For example, if a feature branch was created from main, main is the base reference of type branch.
+
+3
+The base revision refers to the starting revision of a change. For example, if a branch was created from a certain commit, this commit is the base revision.
+
+4
+For Git VCS, this should not include the .git URL suffix.
+
+SDLC pipeline run finished event
+The SDLC pipeline event "run finished" is generated when a pipeline run is finished in the CI/CD system.
+
+Attribute	Type	Description	Examples
+cicd.pipeline.id	string	experimental
+The CI/CD pipeline's identifier, which is unique within one CI/CD system.	12345
+cicd.pipeline.name	string	experimental
+The human-readable name of the CI/CD pipeline.	CI pipeline for main branch
+cicd.pipeline.run.id	string	experimental
+An identifier for a pipeline run, which is unique within one CI/CD system.	9876
+cicd.pipeline.run.outcome	string	experimental
+The outcome of one pipeline run.	success
+cicd.pipeline.run.queued.duration	duration	experimental
+How long was the pipeline run queued before it was started, in nanoseconds.	1234
+cicd.pipeline.run.url.full	string	experimental
+The URL pointing to one specific pipeline run.	https://github.com/ACME/ACME-repo/actions/runs/9876
+cicd.pipeline.url.full	string	experimental
+The CI/CD pipeline's full URL.	https://github.com/ACME/ACME-repo/actions/workflows/ci-build.yml
+cicd.upstream_pipeline.id	string	experimental
+The identifier of the upstream CI/CD pipeline. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline.	12345
+cicd.upstream_pipeline.run.id	string	experimental
+The identifier of the upstream CI/CD pipeline run. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline run.	1337
+duration	duration	experimental
+The duration of the pipeline run in nanoseconds.	1234
+end_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the pipeline run was finished.	1649822520123123165
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to pipeline for all pipeline events.	pipeline
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to finished for SDLC pipeline run finished events.	finished
+event.type	string	experimental
+The value must be set to run for SDLC pipeline run finished events.
+Tags: permission	run
+event.version	string	experimental
+The version of the SDLC pipeline run finished event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the pipeline run was started.	1649822520123123123
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+SDLC pipeline run queued event
+The SDLC pipeline event "run queued" is generated when a pipeline run is queued in the CI/CD system.
+
+Attribute	Type	Description	Examples
+cicd.pipeline.id	string	experimental
+The CI/CD pipeline's identifier, which is unique within one CI/CD system.	12345
+cicd.pipeline.name	string	experimental
+The human-readable name of the CI/CD pipeline.	CI pipeline for main branch
+cicd.pipeline.run.id	string	experimental
+An identifier for a pipeline run, which is unique within one CI/CD system.	9876
+cicd.pipeline.run.url.full	string	experimental
+The URL pointing to one specific pipeline run.	https://github.com/ACME/ACME-repo/actions/runs/9876
+cicd.pipeline.url.full	string	experimental
+The CI/CD pipeline's full URL.	https://github.com/ACME/ACME-repo/actions/workflows/ci-build.yml
+cicd.upstream_pipeline.id	string	experimental
+The identifier of the upstream CI/CD pipeline. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline.	12345
+cicd.upstream_pipeline.run.id	string	experimental
+The identifier of the upstream CI/CD pipeline run. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline run.	1337
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to pipeline for all pipeline events.	pipeline
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to queued for SDLC pipeline run queued events.	queued
+event.type	string	experimental
+The value must be set to run for SDLC pipeline run queued events.
+Tags: permission	run
+event.version	string	experimental
+The version of the SDLC pipeline run queued event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the pipeline run was queued.	1649822520123123123
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+SDLC pipeline run started event
+The SDLC pipeline event "run started" is generated when a pipeline run is started in the CI/CD system.
+
+Attribute	Type	Description	Examples
+cicd.pipeline.id	string	experimental
+The CI/CD pipeline's identifier, which is unique within one CI/CD system.	12345
+cicd.pipeline.name	string	experimental
+The human-readable name of the CI/CD pipeline.	CI pipeline for main branch
+cicd.pipeline.run.id	string	experimental
+An identifier for a pipeline run, which is unique within one CI/CD system.	9876
+cicd.pipeline.run.queued.duration	duration	experimental
+How long was the pipeline run queued before it was started, in nanoseconds.	1234
+cicd.pipeline.run.url.full	string	experimental
+The URL pointing to one specific pipeline run.	https://github.com/ACME/ACME-repo/actions/runs/9876
+cicd.pipeline.url.full	string	experimental
+The CI/CD pipeline's full URL.	https://github.com/ACME/ACME-repo/actions/workflows/ci-build.yml
+cicd.upstream_pipeline.id	string	experimental
+The identifier of the upstream CI/CD pipeline. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline.	12345
+cicd.upstream_pipeline.run.id	string	experimental
+The identifier of the upstream CI/CD pipeline run. If a pipeline run was triggered by another pipeline, this attribute is used to reference the triggering pipeline run.	1337
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to pipeline for all pipeline events.	pipeline
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	github.com
+event.status	string	experimental
+The value must be set to started for SDLC pipeline run started events.	started
+event.type	string	experimental
+The value must be set to run for SDLC pipeline run started events.
+Tags: permission	run
+event.version	string	experimental
+The version of the SDLC pipeline run started event.	0.1.0
+start_time	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the pipeline run was started.	1649822520123123123
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when it was created.	1649822520123123123
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+SDLC validation events
+The SDLC validation events are generated when a validation is started or finished. This can happen in the context of a CI/CD system.
+
+Query
+Get all SDLC validation task events.
+
+fetch events
+| filter event.kind == "SDLC_EVENT" and event.category == "task" and event.type == "validation"
+
+Get all SDLC validation started task events.
+
+fetch events
+| filter event.kind == "SDLC_EVENT" and event.category == "task" and event.type == "validation" and event.status == "started"
+
+Get all SDLC validation finished task events.
+
+fetch events
+| filter event.kind == "SDLC_EVENT" and event.category == "task" and event.type == "validation" and event.status == "finished"
+
+Common attributes
+The common attributes listed in this section apply to both started and finished events, in addition to the specific attributes listed in the validation started and validation finished sections below.
+
+For all validation events, event.kind must be SDLC_EVENT, event.category must be task, and event.type must be validation.
+
+Attribute	Type	Description	Examples
+cicd.pipeline.id	string	experimental
+The cicd.pipeline.id if the validation was triggered in the context of a CI/CD pipeline. Value is optional.	12345
+cicd.pipeline.run.id	string	experimental
+The cicd.pipeline.run.id if the validation was triggered in the context of a CI/CD pipeline. Value is optional.	9876
+event.category	string	experimental
+Describes the SDLC event's category, which must be set to task for SDLC validation events.	task
+event.description	string	experimental
+Value is optional.	This is a validation finished event
+event.id	string	experimental
+Unique identifier string of an event; is stable across multiple refreshes and updates.	5547782627070661074_1647601320000
+event.kind	string	experimental
+Gives high-level information about what kind of information the event contains without being specific about the contents of the event. It helps to determine the record type of a raw event. 1
+Tags: permission	SDLC_EVENT
+event.name	string	experimental
+Value is optional.	Validation finished
+event.provider	string	experimental
+Source of the event, for example, the name of the component or system that generated the event.
+Tags: permission	dynatrace.site.reliability.guardian
+event.status	string	experimental
+The value must either be set to started for SDLC validation started task events or to finished for SDLC validation finished task events.	finished; started
+event.type	string	experimental
+The value must be set to validation for any task event describing a validation in the Software Development Life Cycle.
+Tags: permission	validation
+event.version	string	experimental
+Describes the version of the event.	0.0.1
+start_time	timestamp	experimental
+The start time of the validation process. Value is optional.	1649822520123123123
+task.id	string	experimental
+Value is optional.	123
+task.name	string	experimental
+Value is optional.	Validation for service-A during CI run of pipeline-B
+task.outcome	string	experimental
+Value is optional.	Success; Warning; Failure; Error; Skipped; Canceled; TimedOut; NotApplicable
+timestamp	timestamp	experimental
+The time (UNIX Epoch time in nanoseconds) when the event originated, typically when the source created it. If no original timestamp is available, it will be populated at ingest time and required for all events. In the case of a correlated event (for example, ITIL events), this time could be different from the event.start time, as this time represents the actual timestamp when the "update" for the event was created.	1649822520123123123
+validation.from	string	experimental
+An ISO 8601 compliant timestamp identifying the start of the validation timeframe. Value is optional. 2	2024-10-09T20:00:12.199Z
+validation.to	string	experimental
+An ISO 8601 compliant timestamp identifying the end of the validation timeframe. Value is optional. 3	2024-10-09T20:10:12.199Z
+1
+Automatically and unconditionally set to value SDLC_EVENT.
+
+2
+This is not the start of the validation process, but the start of the timeframe if the underlying validation logic is timeframe-based, as would be the case for metrics.
+
+3
+This is not the end of the validation process, but the end of the timeframe if the underlying validation logic is timeframe-based, as would be the case for metrics.
+
+Validation started
+This event type represents an SDLC validation started event.
+
+For a validation started event, event.status must be started.
+
+Attribute	Type	Description	Examples
+event.status	string	experimental
+The value must be set to started for SDLC validation started task events.	started
+Validation finished
+This event type represents an SDLC validation finished event.
+
+For a validation finished event, event.status must be finished.
+
+Attribute	Type	Description	Examples
+duration	duration	experimental
+The duration of the validation process. This should be the time span between start_time and end_time. Value is optional.	42
+end_time	timestamp	experimental
+The end time of the validation process. Value is optional.	1649822520123123165
+event.status	string	experimental
+The value must be set to finished for SDLC validation finished task events.	finished
+validation.at	string	experimental
+An ISO 8601 compliant timestamp identifying the time when the validation process happened. Should be used to specify the timestamp when data had been retrieved, if the underlying validation logic would depend on that. In general, this timestamp should be greater than or equal to start_time and less than or equal to end_time. Value is optional. 1	2024-10-09T20:10:12.199Z
+validation.result	string	experimental
+A text indicating the status of the finished validation.	pass; warning; fail; info; error
+1
+This timestamp or the timeframe determined by validation.to and validation.from should be set, depending on the use case. If there is no time-based component at all in the context of this validation, then all three fields are optional. Conversely, if the timeframe-based validation logic depends on data that might be sampled, then all three fields could be set.

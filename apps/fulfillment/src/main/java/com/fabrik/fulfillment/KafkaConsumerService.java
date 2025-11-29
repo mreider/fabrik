@@ -24,11 +24,30 @@ public class KafkaConsumerService {
 
     @KafkaListener(topics = "orders", groupId = "fulfillment-group")
     public void consume(String orderId) {
-        if ("true".equals(System.getenv("FAILURE_MODE"))) {
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+        
+        if (!shouldFail && failureRateStr != null) {
             try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
+            try {
+                // Actually attempt a query
+                orderRepository.findById(orderId);
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore
             }
             throw new RuntimeException("org.springframework.dao.QueryTimeoutException: PreparedStatementCallback; SQL [UPDATE orders ...]; Query timeout; nested exception is org.postgresql.util.PSQLException: ERROR: canceling statement due to user request");
         }
