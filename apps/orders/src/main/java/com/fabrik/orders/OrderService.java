@@ -20,7 +20,22 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
 
     @Override
     public void placeOrder(OrderRequest request, StreamObserver<OrderResponse> responseObserver) {
-        if ("true".equals(System.getenv("FAILURE_MODE"))) {
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+        
+        if (!shouldFail && failureRateStr != null) {
+            try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
             try {
                 // Actually attempt a query that will timeout or fail
                 // We use a native query to simulate a slow/locked table
