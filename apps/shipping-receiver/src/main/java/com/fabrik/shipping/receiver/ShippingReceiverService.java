@@ -21,6 +21,31 @@ public class ShippingReceiverService {
 
     @KafkaListener(topics = "inventory-reserved", groupId = "shipping-group")
     public void receive(String message) {
+        // Check for failure injection
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+
+        if (!shouldFail && failureRateStr != null) {
+            try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
+            try {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
+            throw new RuntimeException("Message processing failure: Unable to parse shipping message or connection timeout to shipping processor");
+        }
+
         // Message format: orderId:itemId
         String[] parts = message.split(":");
         String orderId = parts[0];
@@ -29,7 +54,7 @@ public class ShippingReceiverService {
         Span span = Span.current();
         span.setAttribute("messaging.operation.type", "receive");
         span.setAttribute("messaging.system", "kafka");
-        
+
         logger.info("Received shipping request for order: {}", orderId);
 
         // Call Processor via gRPC

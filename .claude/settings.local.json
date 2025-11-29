@@ -1,14 +1,8 @@
 {
   "permissions": {
     "allow": [
-      "Bash(kubectl get:*)",
-      "Bash(kubectl describe:*)",
-      "Bash(kubectl logs:*)",
-      "Bash(kubectl exec:*)",
-      "Bash(kubectl rollout restart:*)",
-      "Bash(kubectl wait:*)",
-      "Bash(kubectl create configmap:*)",
-      "Bash(kubectl replace:*)"
+      "Bash(kubectl get pods:*)",
+      "Bash(kubectl logs:*)"
     ],
     "deny": [],
     "ask": []

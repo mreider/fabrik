@@ -29,9 +29,38 @@ public class InventoryService {
     @KafkaListener(topics = "orders", groupId = "inventory-group")
     @Transactional
     public void handleOrder(String orderId) {
+        // Check for failure injection
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+
+        if (!shouldFail && failureRateStr != null) {
+            try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
+            try {
+                // Simulate slow inventory lookup query
+                inventoryRepository.findAll();
+                Thread.sleep(5000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore the find error, we want to throw the specific timeout exception below
+            }
+            throw new RuntimeException("org.springframework.dao.QueryTimeoutException: PreparedStatementCallback; SQL [SELECT * FROM inventory_items ...]; Query timeout; nested exception is org.postgresql.util.PSQLException: ERROR: canceling statement due to user request");
+        }
+
         // Simulate item ID extraction (in real app, message would be JSON)
-        String itemId = "Item-" + (int)(Math.random() * 100); 
-        
+        String itemId = "Item-" + (int)(Math.random() * 100);
+
         Span receiveSpan = Span.current();
         receiveSpan.setAttribute("messaging.operation.type", "receive");
         receiveSpan.setAttribute("messaging.system", "kafka");
@@ -46,11 +75,17 @@ public class InventoryService {
         try (Scope scope = processSpan.makeCurrent()) {
             Optional<InventoryItem> itemOpt = inventoryRepository.findById(itemId);
             InventoryItem item = itemOpt.orElse(new InventoryItem(itemId, 100)); // Default stock
-            
+
+            // Auto-replenish when stock gets low (demo purposes)
+            if (item.getQuantity() <= 5) {
+                logger.info("Auto-replenishing {} (was: {}, now: 100)", itemId, item.getQuantity());
+                item.setQuantity(100);
+            }
+
             if (item.getQuantity() > 0) {
                 item.setQuantity(item.getQuantity() - 1);
                 inventoryRepository.save(item);
-                
+
                 // Publish to inventory-reserved
                 sendReservedEvent(orderId, itemId);
             } else {

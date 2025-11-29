@@ -22,10 +22,40 @@ public class ShippingService extends ShippingServiceGrpc.ShippingServiceImplBase
 
     @Override
     public void shipOrder(ShipmentRequest request, StreamObserver<ShipmentResponse> responseObserver) {
+        // Check for failure injection
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+
+        if (!shouldFail && failureRateStr != null) {
+            try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
+            try {
+                // Simulate slow shipment database operations
+                shipmentRepository.findAll();
+                Thread.sleep(4000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore the find error, we want to throw the specific timeout exception below
+            }
+            responseObserver.onError(new RuntimeException("org.springframework.dao.QueryTimeoutException: PreparedStatementCallback; SQL [INSERT INTO shipments ...]; Query timeout; nested exception is org.postgresql.util.PSQLException: ERROR: canceling statement due to user request"));
+            return;
+        }
+
         Span span = Span.current();
         span.setAttribute("messaging.operation.type", "process");
         span.setAttribute("messaging.system", "grpc"); // Or internal
-        
+
         logger.info("Processing shipment for order: {}", request.getOrderId());
         
         Shipment shipment = new Shipment(request.getOrderId(), "SHIPPED");

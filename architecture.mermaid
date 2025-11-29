@@ -1,50 +1,104 @@
 flowchart TD
-    subgraph "External"
-        LG[Load Generator]
+    subgraph "🚀 External Load Generator"
+        LG["Fab Proxy<br/>📊 Continuous Load Generation"]
     end
 
-    subgraph "Fabrik Application"
-        FE[Frontend Service]
-        OS[Orders Service]
-        FS[Fulfillment Service]
-        IS[Inventory Service]
-        SR[Shipping Receiver]
-        SP[Shipping Processor]
-        
-        DB[(Postgres DB)]
-        K[Kafka Broker]
+    subgraph "🏗️ Fabrik Microservices Platform"
+        FE["Frontend Service<br/>🔥 HTTP 500s (15%)<br/>⏱️ Slow Responses<br/>📊 Dashboard Queries"]
+        OS["Orders Service<br/>🔥 DB Timeouts (30%)<br/>⏱️ 5s Query Delays<br/>📦 Order Processing"]
+        FS["Fulfillment Service<br/>🔥 DB Timeouts (30%)<br/>⏱️ Query Failures<br/>🛡️ Fraud Detection"]
+        IS["Inventory Service<br/>🔥 DB Timeouts (25%)<br/>♻️ Auto-Replenishment<br/>📦 Stock Management"]
+        SR["Shipping Receiver<br/>🔥 Message Failures (20%)<br/>⏱️ Connection Timeouts<br/>📨 Kafka Consumer"]
+        SP["Shipping Processor<br/>🔥 gRPC Failures (20%)<br/>🔥 DB Timeouts<br/>🚚 Shipment Creation"]
+
+        DB[("🎯 PostgreSQL Database<br/>💥 Primary Failure Target<br/>🔗 Connection Pool<br/>📊 Query Performance")]
+        K["📨 Kafka Broker<br/>⚡ Message Queue<br/>📈 Event Streaming<br/>🔄 Async Processing"]
     end
 
-    %% Load Generation
-    LG -- "HTTP POST /order" --> FE
+    subgraph "🔥 Chaos Engineering System"
+        direction TB
+        CHAOS["⚡ ArgoCD Simulator<br/>🎯 Random 0-2hr Intervals<br/>💥 Correlated Failures<br/>📊 SDLC Events"]
 
-    %% Frontend Flow
-    FE -- "JDBC Query (Check)" --> DB
-    FE -- "gRPC PlaceOrder" --> OS
+        subgraph "💥 Failure Types"
+            F1["🚨 HTTP 500 Errors"]
+            F2["⏱️ Database Timeouts"]
+            F3["📨 Message Failures"]
+            F4["🔗 gRPC Errors"]
+            F5["🐌 Response Delays"]
+        end
+    end
 
-    %% Orders Flow
-    OS -- "JDBC Insert (Order)" --> DB
-    OS -- "Publish 'orders'" --> K
+    subgraph "📊 Dynatrace Observability"
+        direction TB
+        DAVIS["🤖 Davis AI<br/>🔍 Anomaly Detection<br/>🎯 Root Cause Analysis<br/>📈 Impact Assessment"]
 
-    %% Fulfillment Flow (Async)
-    K -- "Consume 'orders'" --> FS
-    FS -- "JDBC Update (Status/Fraud)" --> DB
+        subgraph "📈 Monitoring Targets"
+            M1["📊 Response Times"]
+            M2["🚨 Error Rates"]
+            M3["💾 Database Performance"]
+            M4["📨 Message Processing"]
+            M5["🔗 Service Dependencies"]
+        end
+    end
 
-    %% Inventory Flow (Async)
-    K -- "Consume 'orders'" --> IS
-    IS -- "JDBC Select/Update (Stock)" --> DB
-    IS -- "Publish 'inventory-reserved'" --> K
+    %% Load Generation Flow
+    LG -- "🚀 HTTP POST /order<br/>Continuous Traffic" --> FE
 
-    %% Shipping Flow (Async + Sync)
-    K -- "Consume 'inventory-reserved'" --> SR
-    SR -- "gRPC ShipOrder" --> SP
-    SP -- "JDBC Insert (Shipment)" --> DB
+    %% Frontend Flow - HTTP & Database
+    FE -- "📊 JDBC Order History<br/>💥 15% Failure Rate<br/>⏱️ 3s Timeout Delays" --> DB
+    FE -- "🔗 gRPC PlaceOrder<br/>💥 HTTP 500 Injection<br/>⏱️ 2s Response Delays" --> OS
+
+    %% Orders Flow - Core Transaction
+    OS -- "💾 JDBC Insert Order<br/>💥 30% Failure Rate<br/>⏱️ 5s Query Delays<br/>🔥 Connection Pool Stress" --> DB
+    OS -- "📤 Publish 'orders' Topic<br/>💥 Transaction Chain Start<br/>🔄 Async Processing Trigger" --> K
+
+    %% Fulfillment Flow - Async Processing
+    K -- "📥 Consume 'orders' Messages<br/>💥 30% Processing Failures<br/>🛡️ Fraud Check Pipeline" --> FS
+    FS -- "📝 JDBC Update Order Status<br/>💥 Query Timeout Exceptions<br/>🛡️ Fraud Detection Logic" --> DB
+
+    %% Inventory Flow - Stock Management
+    K -- "📥 Consume 'orders' Messages<br/>💥 25% Processing Failures<br/>📦 Stock Reservation" --> IS
+    IS -- "📦 JDBC Stock Lookup/Update<br/>💥 Slow Query Simulation<br/>♻️ Auto-Replenish @ Stock≤5" --> DB
+    IS -- "📤 Publish 'inventory-reserved'<br/>🔄 Trigger Shipping Pipeline<br/>✅ Stock Confirmed" --> K
+
+    %% Shipping Flow - Async + Sync Hybrid
+    K -- "📥 Consume 'inventory-reserved'<br/>💥 20% Message Failures<br/>🚚 Shipping Initiation" --> SR
+    SR -- "🔗 gRPC ShipOrder Call<br/>💥 Connection Timeouts<br/>⏱️ 3s Delay Injection<br/>🚚 Shipment Request" --> SP
+    SP -- "💾 JDBC Insert Shipment<br/>💥 20% DB Failures<br/>🚚 Tracking Number Gen" --> DB
+
+    %% Chaos Engineering Connections
+    CHAOS -.->|"💥 Inject Failures"| OS
+    CHAOS -.->|"💥 Inject Failures"| FS
+    CHAOS -.->|"💥 Inject Failures"| IS
+    CHAOS -.->|"💥 Inject Failures"| SR
+    CHAOS -.->|"💥 Inject Failures"| SP
+    CHAOS -.->|"💥 Inject Failures"| FE
+
+    %% Observability Connections
+    FE -.->|"📊 Metrics & Traces"| DAVIS
+    OS -.->|"📊 Metrics & Traces"| DAVIS
+    FS -.->|"📊 Metrics & Traces"| DAVIS
+    IS -.->|"📊 Metrics & Traces"| DAVIS
+    SR -.->|"📊 Metrics & Traces"| DAVIS
+    SP -.->|"📊 Metrics & Traces"| DAVIS
+    DB -.->|"📊 Database Metrics"| DAVIS
+    K -.->|"📊 Message Metrics"| DAVIS
 
     %% Styling
-    classDef service fill:#f9f,stroke:#333,stroke-width:2px;
-    classDef db fill:#ccf,stroke:#333,stroke-width:2px;
-    classDef queue fill:#ff9,stroke:#333,stroke-width:2px;
-    
+    classDef service fill:#e1f5fe,stroke:#01579b,stroke-width:3px;
+    classDef chaos fill:#ffebee,stroke:#d32f2f,stroke-width:3px;
+    classDef observability fill:#e8f5e8,stroke:#2e7d32,stroke-width:3px;
+    classDef db fill:#f3e5f5,stroke:#4a148c,stroke-width:3px;
+    classDef queue fill:#fff3e0,stroke:#e65100,stroke-width:3px;
+    classDef loadgen fill:#fce4ec,stroke:#880e4f,stroke-width:3px;
+    classDef failtype fill:#fff8e1,stroke:#ff8f00,stroke-width:2px;
+    classDef montype fill:#f1f8e9,stroke:#558b2f,stroke-width:2px;
+
     class FE,OS,FS,IS,SR,SP service;
+    class CHAOS chaos;
+    class DAVIS observability;
     class DB db;
     class K queue;
+    class LG loadgen;
+    class F1,F2,F3,F4,F5 failtype;
+    class M1,M2,M3,M4,M5 montype;

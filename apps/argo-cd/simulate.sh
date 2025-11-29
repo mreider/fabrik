@@ -52,35 +52,66 @@ EOF
 }
 
 run_simulation() {
-    echo "Starting deployment simulation..."
-    
+    echo "Starting Fabrik Chaos Engineering Simulation..."
+    echo "This simulates correlated failures across the microservices architecture"
+    echo "to demonstrate Dynatrace Davis AI anomaly detection and root cause analysis."
+
     # 1. Send Deployment Started
     send_sdlc_event "started" "v2.0.0-green"
-    
-    # 2. Episodic Failure (10 minutes)
-    # We enable FAILURE_RATE=30 for 10 minutes.
-    # This causes ~30% failure during this "episode".
-    echo "Starting episodic failure (10 minutes)..."
-    
-    echo "Fault ON"
+
+    # 2. Correlated Failure Episode (10 minutes)
+    # Simulates a problematic deployment with cascading failures:
+    # - Database query timeouts (orders, fulfillment, inventory, shipping)
+    # - HTTP 500 errors (frontend)
+    # - Message processing failures (kafka consumers)
+    # - gRPC communication failures (shipping processor)
+    echo "Starting correlated failure simulation (10 minutes)..."
+    echo "Injecting failures: DB timeouts, HTTP 500s, messaging failures, gRPC errors"
+
+    echo "🔥 CHAOS MODE ON - Simulating problematic deployment v2.0.0-green"
     for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
+         # Core services with high failure rates (simulate DB connection pool exhaustion)
          kubectl set env deployment/orders FAILURE_RATE=30 -n $ns
          kubectl set env deployment/fulfillment FAILURE_RATE=30 -n $ns
+
+         # Inventory service (inventory lookup timeouts)
+         kubectl set env deployment/inventory FAILURE_RATE=25 -n $ns
+
+         # Shipping services (messaging and gRPC failures)
+         kubectl set env deployment/shipping-receiver FAILURE_RATE=20 -n $ns
+         kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns
+
+         # Frontend (HTTP 500s and slow responses)
+         kubectl set env deployment/frontend FAILURE_RATE=15 -n $ns
     done
-    
-    # Wait 10 minutes
+
+    echo "Chaos simulation will run for 10 minutes..."
+    echo "Expected symptoms:"
+    echo "  • Increased response times across all services"
+    echo "  • Database query timeout exceptions"
+    echo "  • HTTP 500 error rate spikes"
+    echo "  • Message processing failures"
+    echo "  • gRPC communication errors"
+    echo "  • End-to-end transaction failures"
+
+    # Wait 10 minutes for chaos to show impact
     sleep 600
 
-    echo "Fault OFF"
+    echo "✅ CHAOS MODE OFF - Rolling back to stable version v1.0.0-blue"
     for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
          kubectl set env deployment/orders FAILURE_RATE- -n $ns
          kubectl set env deployment/fulfillment FAILURE_RATE- -n $ns
+         kubectl set env deployment/inventory FAILURE_RATE- -n $ns
+         kubectl set env deployment/shipping-receiver FAILURE_RATE- -n $ns
+         kubectl set env deployment/shipping-processor FAILURE_RATE- -n $ns
+         kubectl set env deployment/frontend FAILURE_RATE- -n $ns
     done
-    
-    # 6. Send Deployment Finished (Good)
+
+    # 3. Send Deployment Finished (Rollback to Good)
     send_sdlc_event "finished" "v1.0.0-blue"
-    
-    echo "Rollback complete."
+
+    echo "Rollback complete - System should return to baseline performance."
+    echo "Davis AI should detect the anomaly period and correlate it with the deployment event."
 }
 
 if [ "$1" == "manual" ]; then
@@ -90,10 +121,10 @@ fi
 
 # Loop forever
 while true; do
-    # Sleep for random time between 2.5 and 3.5 hours (9000 to 12600 seconds)
-    sleep_time=$((9000 + RANDOM % 3600))
-    echo "Sleeping for ${sleep_time} seconds..."
+    # Sleep for random time between 0 and 2 hours (0 to 7200 seconds)
+    sleep_time=$((RANDOM % 7200))
+    echo "Sleeping for ${sleep_time} seconds ($(($sleep_time / 60)) minutes)..."
     sleep $sleep_time
-    
+
     run_simulation
 done
