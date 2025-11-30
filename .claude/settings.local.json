@@ -13,7 +13,12 @@
       "Bash(kubectl delete pod:*)",
       "Bash(kubectl wait:*)",
       "Bash(for:*)",
-      "Bash(kubectl set env:*)"
+      "Bash(kubectl set env:*)",
+      "Bash(git add:*)",
+      "Bash(kubectl set image:*)",
+      "Bash(kubectl rollout status:*)",
+      "Bash(kubectl describe:*)",
+      "Bash(kubectl rollout undo:*)"
     ],
     "deny": [],
     "ask": []
