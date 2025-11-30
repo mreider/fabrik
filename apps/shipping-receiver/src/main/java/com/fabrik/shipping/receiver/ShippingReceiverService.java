@@ -80,10 +80,14 @@ public class ShippingReceiverService {
                 int rate = Integer.parseInt(slowdownRateStr);
                 int delayMs = Integer.parseInt(slowdownDelayStr);
                 if (Math.random() * 100 < rate) {
-                    receiverRepository.analyzeMessageQueuePerformance(delayMs);
+                    // Simulate message queue performance analysis
+                    logger.debug("Simulating message queue performance analysis");
+                    Thread.sleep(delayMs);
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
-                // Ignore if queue analysis fails
+                // Ignore if queue analysis simulation fails
             }
         }
 
