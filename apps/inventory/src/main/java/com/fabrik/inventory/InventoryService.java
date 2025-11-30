@@ -29,6 +29,26 @@ public class InventoryService {
     @KafkaListener(topics = "orders", groupId = "inventory-group")
     @Transactional
     public void handleOrder(String orderId) {
+        // Apply message processing slowdown (before business logic)
+        String msgSlowdownRateStr = System.getenv("MSG_SLOWDOWN_RATE");
+        String msgSlowdownDelayStr = System.getenv("MSG_SLOWDOWN_DELAY");
+        if (msgSlowdownRateStr != null && msgSlowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(msgSlowdownRateStr);
+                float delaySec = Integer.parseInt(msgSlowdownDelayStr) / 1000.0f;
+                if (Math.random() * 100 < rate) {
+                    // Simulate message processing overhead (deserialization, validation, DLQ)
+                    if (Math.random() < 0.7) {
+                        inventoryRepository.processMessageBatch(delaySec);
+                    } else {
+                        inventoryRepository.processDlqMessages(delaySec * 0.8f);
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore if message processing simulation fails
+            }
+        }
+
         // Check for failure injection
         String failureMode = System.getenv("FAILURE_MODE");
         String failureRateStr = System.getenv("FAILURE_RATE");
@@ -73,6 +93,21 @@ public class InventoryService {
                 .startSpan();
 
         try (Scope scope = processSpan.makeCurrent()) {
+            // Apply slowdown via business metrics update (realistic analytics processing)
+            String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+            String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+            if (slowdownRateStr != null && slowdownDelayStr != null) {
+                try {
+                    int rate = Integer.parseInt(slowdownRateStr);
+                    float delaySec = Integer.parseInt(slowdownDelayStr) / 1000.0f;
+                    if (Math.random() * 100 < rate) {
+                        inventoryRepository.updateBusinessMetrics(delaySec * 0.5f, delaySec);
+                    }
+                } catch (Exception e) {
+                    // Ignore if business metrics update fails
+                }
+            }
+
             Optional<InventoryItem> itemOpt = inventoryRepository.findById(itemId);
             InventoryItem item = itemOpt.orElse(new InventoryItem(itemId, 100)); // Default stock
 

@@ -34,6 +34,24 @@ public class FrontendController {
             }
         }
 
+        // Check for slowdown injection (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        boolean shouldSlowdown = false;
+        int slowdownDelay = 0;
+
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                slowdownDelay = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    shouldSlowdown = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid values
+            }
+        }
+
         if (shouldFail) {
             try {
                 // Simulate slow database query
@@ -45,6 +63,21 @@ public class FrontendController {
                 // Ignore the find error, we want to throw HTTP 500
             }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
+        }
+
+        // Apply slowdown via fraud detection (realistic security processing)
+        if (shouldSlowdown) {
+            try {
+                // Call fraud detection procedure for security validation
+                orderRepository.calculateFraudScore(slowdownDelay);
+            } catch (Exception e) {
+                // Fallback to simple processing if fraud detection fails
+                try {
+                    Thread.sleep(slowdownDelay / 2);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
 
         return ResponseEntity.ok(orderRepository.findAll());
@@ -68,6 +101,24 @@ public class FrontendController {
             }
         }
 
+        // Check for slowdown injection (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        boolean shouldSlowdown = false;
+        int slowdownDelay = 0;
+
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                slowdownDelay = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    shouldSlowdown = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid values
+            }
+        }
+
         if (shouldFail) {
             try {
                 Thread.sleep(2000);
@@ -76,6 +127,21 @@ public class FrontendController {
             }
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body("Internal Server Error: Unable to process order due to system overload");
+        }
+
+        // Apply slowdown via fraud detection before order placement
+        if (shouldSlowdown) {
+            try {
+                // Enhanced fraud detection for order placement
+                orderRepository.calculateFraudScore(slowdownDelay);
+            } catch (Exception e) {
+                // Fallback if fraud detection unavailable
+                try {
+                    Thread.sleep(slowdownDelay / 2);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
         }
 
         String result = orderClient.placeOrder(item, quantity);

@@ -15,12 +15,37 @@ import org.slf4j.LoggerFactory;
 public class ShippingReceiverService {
 
     private static final Logger logger = LoggerFactory.getLogger(ShippingReceiverService.class);
+    private final ReceiverRepository receiverRepository;
 
     @GrpcClient("shipping-processor")
     private ShippingServiceGrpc.ShippingServiceBlockingStub shippingStub;
 
+    public ShippingReceiverService(ReceiverRepository receiverRepository) {
+        this.receiverRepository = receiverRepository;
+    }
+
     @KafkaListener(topics = "inventory-reserved", groupId = "shipping-group")
     public void receive(String message) {
+        // Apply message processing slowdown (deserialization and validation)
+        String msgSlowdownRateStr = System.getenv("MSG_SLOWDOWN_RATE");
+        String msgSlowdownDelayStr = System.getenv("MSG_SLOWDOWN_DELAY");
+        if (msgSlowdownRateStr != null && msgSlowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(msgSlowdownRateStr);
+                float delaySec = Integer.parseInt(msgSlowdownDelayStr) / 1000.0f;
+                if (Math.random() * 100 < rate) {
+                    // Simulate message processing overhead (deserialization, validation, retry)
+                    if (Math.random() < 0.6) {
+                        receiverRepository.processMessageBatch(delaySec);
+                    } else {
+                        receiverRepository.processDlqMessages(delaySec * 0.9f);
+                    }
+                }
+            } catch (Exception e) {
+                // Ignore if message processing simulation fails
+            }
+        }
+
         // Check for failure injection
         String failureMode = System.getenv("FAILURE_MODE");
         String failureRateStr = System.getenv("FAILURE_RATE");
@@ -44,6 +69,21 @@ public class ShippingReceiverService {
                 Thread.currentThread().interrupt();
             }
             throw new RuntimeException("Message processing failure: Unable to parse shipping message or connection timeout to shipping processor");
+        }
+
+        // Apply slowdown via message queue performance analysis (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                int delayMs = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    receiverRepository.analyzeMessageQueuePerformance(delayMs);
+                }
+            } catch (Exception e) {
+                // Ignore if queue analysis fails
+            }
         }
 
         // Message format: orderId:itemId

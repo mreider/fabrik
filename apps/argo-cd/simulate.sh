@@ -74,37 +74,50 @@ run_simulation() {
          kubectl set env deployment/orders FAILURE_RATE=30 -n $ns
          kubectl set env deployment/fulfillment FAILURE_RATE=30 -n $ns
 
-         # Inventory service (inventory lookup timeouts)
-         kubectl set env deployment/inventory FAILURE_RATE=25 -n $ns
+         # Inventory service (inventory lookup timeouts + message processing slowdowns)
+         kubectl set env deployment/inventory FAILURE_RATE=25 MSG_SLOWDOWN_RATE=50 MSG_SLOWDOWN_DELAY=1500 -n $ns
 
-         # Shipping services (messaging and gRPC failures)
-         kubectl set env deployment/shipping-receiver FAILURE_RATE=20 -n $ns
+         # Shipping services (messaging and gRPC failures + message processing slowdowns)
+         kubectl set env deployment/shipping-receiver FAILURE_RATE=20 MSG_SLOWDOWN_RATE=45 MSG_SLOWDOWN_DELAY=1200 -n $ns
          kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns
 
          # Frontend (HTTP 500s and slow responses)
          kubectl set env deployment/frontend FAILURE_RATE=15 -n $ns
+
+         # Independent slowdown injection (affects successful requests)
+         kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=2000 -n $ns
+         kubectl set env deployment/fulfillment SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1500 -n $ns
+         kubectl set env deployment/inventory SLOWDOWN_RATE=30 SLOWDOWN_DELAY=3000 -n $ns
+         kubectl set env deployment/shipping-receiver SLOWDOWN_RATE=25 SLOWDOWN_DELAY=1000 -n $ns
+         kubectl set env deployment/shipping-processor SLOWDOWN_RATE=20 SLOWDOWN_DELAY=2500 -n $ns
+         kubectl set env deployment/frontend SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1800 -n $ns
     done
 
     echo "Chaos simulation will run for 10 minutes..."
     echo "Expected symptoms:"
-    echo "  • Increased response times across all services"
-    echo "  • Database query timeout exceptions"
-    echo "  • HTTP 500 error rate spikes"
-    echo "  • Message processing failures"
-    echo "  • gRPC communication errors"
-    echo "  • End-to-end transaction failures"
+    echo "  • Increased response times across all services (independent slowdowns)"
+    echo "  • Database query timeout exceptions (failure injection)"
+    echo "  • HTTP 500 error rate spikes (failure injection)"
+    echo "  • Message processing failures (failure injection)"
+    echo "  • Message deserialization and validation slowdowns (msg processing injection)"
+    echo "  • Consumer group rebalancing delays (msg processing injection)"
+    echo "  • Dead letter queue processing overhead (msg processing injection)"
+    echo "  • gRPC communication errors (failure injection)"
+    echo "  • End-to-end transaction failures (combined effect)"
+    echo "  • Response time degradation on successful requests (slowdown injection)"
+    echo "  • Mixed performance patterns: slow successes + fast failures + slow message processing"
 
     # Wait 10 minutes for chaos to show impact
     sleep 600
 
     echo "✅ CHAOS MODE OFF - Rolling back to stable version v1.0.0-blue"
     for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
-         kubectl set env deployment/orders FAILURE_RATE- -n $ns
-         kubectl set env deployment/fulfillment FAILURE_RATE- -n $ns
-         kubectl set env deployment/inventory FAILURE_RATE- -n $ns
-         kubectl set env deployment/shipping-receiver FAILURE_RATE- -n $ns
-         kubectl set env deployment/shipping-processor FAILURE_RATE- -n $ns
-         kubectl set env deployment/frontend FAILURE_RATE- -n $ns
+         kubectl set env deployment/orders FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
+         kubectl set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
+         kubectl set env deployment/inventory FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns
+         kubectl set env deployment/shipping-receiver FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns
+         kubectl set env deployment/shipping-processor FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
+         kubectl set env deployment/frontend FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
     done
 
     # 3. Send Deployment Finished (Rollback to Good)

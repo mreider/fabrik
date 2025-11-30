@@ -11,7 +11,9 @@
       "Bash(echo:*)",
       "Bash(done)",
       "Bash(kubectl delete pod:*)",
-      "Bash(kubectl wait:*)"
+      "Bash(kubectl wait:*)",
+      "Bash(for:*)",
+      "Bash(kubectl set env:*)"
     ],
     "deny": [],
     "ask": []

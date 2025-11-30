@@ -52,6 +52,21 @@ public class ShippingService extends ShippingServiceGrpc.ShippingServiceImplBase
             return;
         }
 
+        // Apply slowdown via shipping analytics (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                float delaySec = Integer.parseInt(slowdownDelayStr) / 1000.0f;
+                if (Math.random() * 100 < rate) {
+                    shipmentRepository.generateShippingAnalytics(delaySec);
+                }
+            } catch (Exception e) {
+                // Ignore if analytics generation fails
+            }
+        }
+
         Span span = Span.current();
         span.setAttribute("messaging.operation.type", "process");
         span.setAttribute("messaging.system", "grpc"); // Or internal

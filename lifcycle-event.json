@@ -69,12 +69,12 @@
   "trigger": {
     "eventTrigger": {
       "isActive": true,
-      "filterQuery": "event.type == \"CUSTOM_INFO\" and argocd.app.name == \"fabrik\" and matchesPhrase(event.name, \"ArgoCD Deployment\")",
+      "filterQuery": "event.type == \"CUSTOM_INFO\" and argocd.app.name == \"fabrik\" and matchesPhrase(title, \"ArgoCD Deployment\")",
       "uniqueExpression": null,
       "triggerConfiguration": {
         "type": "event",
         "value": {
-          "query": "event.type == \"CUSTOM_INFO\" and argocd.app.name == \"fabrik\" and matchesPhrase(event.name, \"ArgoCD Deployment\")",
+          "query": "event.type == \"CUSTOM_INFO\" and argocd.app.name == \"fabrik\" and matchesPhrase(title, \"ArgoCD Deployment\")",
           "eventType": "events"
         }
       }

@@ -20,10 +20,11 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
 
     @Override
     public void placeOrder(OrderRequest request, StreamObserver<OrderResponse> responseObserver) {
+        // Check for failure injection
         String failureMode = System.getenv("FAILURE_MODE");
         String failureRateStr = System.getenv("FAILURE_RATE");
         boolean shouldFail = "true".equals(failureMode);
-        
+
         if (!shouldFail && failureRateStr != null) {
             try {
                 int rate = Integer.parseInt(failureRateStr);
@@ -35,11 +36,29 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
             }
         }
 
+        // Check for slowdown injection (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        boolean shouldSlowdown = false;
+        int slowdownDelay = 0;
+
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                slowdownDelay = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    shouldSlowdown = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid values
+            }
+        }
+
         if (shouldFail) {
             try {
                 // Actually attempt a query that will timeout or fail
                 // We use a native query to simulate a slow/locked table
-                orderRepository.findAll(); 
+                orderRepository.findAll();
                 Thread.sleep(5000);
             } catch (InterruptedException e) {
                 Thread.currentThread().interrupt();
@@ -50,13 +69,29 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
         }
 
         String orderId = UUID.randomUUID().toString();
-        
+
         OrderEntity order = new OrderEntity();
         order.setId(orderId);
         order.setItem(request.getItem());
         order.setQuantity(request.getQuantity());
         order.setStatus("PENDING");
-        
+
+        // Apply slowdown via business logic procedures (realistic DB performance degradation)
+        if (shouldSlowdown) {
+            try {
+                // Call business validation procedure (becomes slow during high load)
+                float delaySec = slowdownDelay / 1000.0f;
+                orderRepository.validateOrderCompliance(delaySec);
+            } catch (Exception e) {
+                // If business procedure fails, fallback to simple processing
+                try {
+                    Thread.sleep(slowdownDelay / 2);
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+            }
+        }
+
         orderRepository.save(order);
         
         kafkaProducerService.sendOrder(orderId);
