@@ -1,12 +1,14 @@
 package com.fabrik.shipping.receiver;
 
-import jakarta.persistence.*;
+import jakarta.persistence.Entity;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
+import java.util.UUID;
 
 @Entity
 @Table(name = "receiver_log")
 public class ReceiverEntity {
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     private String id;
 
     private String orderId;
@@ -15,6 +17,7 @@ public class ReceiverEntity {
     public ReceiverEntity() {}
 
     public ReceiverEntity(String orderId, String status) {
+        this.id = UUID.randomUUID().toString();
         this.orderId = orderId;
         this.status = status;
     }
