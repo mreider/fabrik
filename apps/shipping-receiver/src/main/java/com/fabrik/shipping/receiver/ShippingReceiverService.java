@@ -15,14 +15,9 @@ import org.slf4j.LoggerFactory;
 public class ShippingReceiverService {
 
     private static final Logger logger = LoggerFactory.getLogger(ShippingReceiverService.class);
-    private final ReceiverRepository receiverRepository;
 
     @GrpcClient("shipping-processor")
     private ShippingServiceGrpc.ShippingServiceBlockingStub shippingStub;
-
-    public ShippingReceiverService(ReceiverRepository receiverRepository) {
-        this.receiverRepository = receiverRepository;
-    }
 
     @KafkaListener(topics = "inventory-reserved", groupId = "shipping-group")
     public void receive(String message) {
@@ -32,15 +27,21 @@ public class ShippingReceiverService {
         if (msgSlowdownRateStr != null && msgSlowdownDelayStr != null) {
             try {
                 int rate = Integer.parseInt(msgSlowdownRateStr);
-                float delaySec = Integer.parseInt(msgSlowdownDelayStr) / 1000.0f;
+                int delayMs = Integer.parseInt(msgSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
                     // Simulate message processing overhead (deserialization, validation, retry)
                     if (Math.random() < 0.6) {
-                        receiverRepository.processMessageBatch(delaySec);
+                        // Batch processing delay (complex JSON deserialization)
+                        logger.debug("Simulating message batch processing delay");
+                        Thread.sleep(delayMs);
                     } else {
-                        receiverRepository.processDlqMessages(delaySec * 0.9f);
+                        // DLQ processing delay (retry logic)
+                        logger.debug("Simulating DLQ processing delay");
+                        Thread.sleep((long)(delayMs * 0.9));
                     }
                 }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
             } catch (Exception e) {
                 // Ignore if message processing simulation fails
             }
