@@ -37,6 +37,11 @@ public class InventoryService {
                 int rate = Integer.parseInt(msgSlowdownRateStr);
                 float delaySec = Integer.parseInt(msgSlowdownDelayStr) / 1000.0f;
                 if (Math.random() * 100 < rate) {
+                    // Simulate random query timeout (10% of slowdowns)
+                    if (Math.random() < 0.1) {
+                        throw new org.springframework.dao.QueryTimeoutException("Timeout waiting for idle object in connection pool");
+                    }
+
                     // Simulate message processing overhead (deserialization, validation, DLQ)
                     if (Math.random() < 0.7) {
                         inventoryRepository.processMessageBatch(delaySec);
@@ -44,6 +49,8 @@ public class InventoryService {
                         inventoryRepository.processDlqMessages(delaySec * 0.8f);
                     }
                 }
+            } catch (org.springframework.dao.QueryTimeoutException e) {
+                throw e;
             } catch (Exception e) {
                 // Ignore if message processing simulation fails
             }
@@ -101,8 +108,14 @@ public class InventoryService {
                     int rate = Integer.parseInt(slowdownRateStr);
                     float delaySec = Integer.parseInt(slowdownDelayStr) / 1000.0f;
                     if (Math.random() * 100 < rate) {
+                        // Simulate random query timeout (10% of slowdowns)
+                        if (Math.random() < 0.1) {
+                            throw new org.springframework.dao.QueryTimeoutException("Statement cancelled due to timeout or client request");
+                        }
                         inventoryRepository.updateBusinessMetrics(delaySec * 0.5f, delaySec);
                     }
+                } catch (org.springframework.dao.QueryTimeoutException e) {
+                    throw e;
                 } catch (Exception e) {
                     // Ignore if business metrics update fails
                 }

@@ -68,8 +68,14 @@ public class FrontendController {
         // Apply slowdown via fraud detection (realistic security processing)
         if (shouldSlowdown) {
             try {
+                // Simulate random query timeout (10% of slowdowns)
+                if (Math.random() < 0.1) {
+                    throw new org.springframework.dao.QueryTimeoutException("Database query timeout during fraud check");
+                }
                 // Call fraud detection procedure for security validation
                 orderRepository.calculateFraudScore(slowdownDelay);
+            } catch (org.springframework.dao.QueryTimeoutException e) {
+                throw e;
             } catch (Exception e) {
                 // Fallback to simple processing if fraud detection fails
                 try {
@@ -132,8 +138,14 @@ public class FrontendController {
         // Apply slowdown via fraud detection before order placement
         if (shouldSlowdown) {
             try {
+                // Simulate random query timeout (10% of slowdowns)
+                if (Math.random() < 0.1) {
+                    throw new org.springframework.dao.QueryTimeoutException("Database query timeout during fraud check");
+                }
                 // Enhanced fraud detection for order placement
                 orderRepository.calculateFraudScore(slowdownDelay);
+            } catch (org.springframework.dao.QueryTimeoutException e) {
+                throw e;
             } catch (Exception e) {
                 // Fallback if fraud detection unavailable
                 try {

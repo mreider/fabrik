@@ -1,0 +1,52 @@
+{
+  "name": "Fulfillment Chaos Detection Guardian",
+  "description": "Site Reliability Guardian to detect chaos-induced failures in fulfillment Kafka consumer. Triggers auto-remediation workflow when SLO is breached due to QueryTimeoutException and message processing failures.",
+  "enabled": true,
+  "validation": {
+    "type": "SIMPLE",
+    "sloId": "fulfillment-kafka-consumer-success-rate",
+    "validationCondition": "SLO_NOT_MET"
+  },
+  "objectives": [
+    {
+      "name": "Fulfillment Success Rate",
+      "sloId": "fulfillment-kafka-consumer-success-rate",
+      "weight": 100,
+      "targetValue": 95.0,
+      "warningValue": 97.0
+    }
+  ],
+  "tags": [
+    {
+      "context": "CONTEXTLESS",
+      "key": "chaos-guardian",
+      "value": "fulfillment"
+    },
+    {
+      "context": "CONTEXTLESS",
+      "key": "auto-remediation",
+      "value": "enabled"
+    }
+  ],
+  "evaluationWindow": "-5m",
+  "evaluationType": "ON_DEMAND",
+  "_workflow_trigger": {
+    "description": "This guardian should trigger a Dynatrace Workflow when validation fails",
+    "workflow_name": "Fulfillment Chaos Auto-Remediation",
+    "trigger_condition": "Guardian validation status = FAILED",
+    "workflow_actions": [
+      "Check if chaos mode is active (FAILURE_RATE env var exists)",
+      "Verify recent SDLC event (v2.0.0-green deployment)",
+      "Send Slack notification with guardian results",
+      "Execute remediation: kubectl set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- -n fabrik-*",
+      "Send SDLC event: v1.0.0-blue (auto-rollback)",
+      "Wait 2 minutes for metrics to stabilize",
+      "Re-validate SLO",
+      "Post remediation status to Slack"
+    ]
+  },
+  "_api_notes": [
+    "Create via Dynatrace UI: Settings > Cloud Automation > Site Reliability Guardian",
+    "Or use API: POST /api/v2/settings/objects with schemaId = builtin:site-reliability-guardian"
+  ]
+}

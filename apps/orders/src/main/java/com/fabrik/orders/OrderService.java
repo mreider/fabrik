@@ -81,7 +81,15 @@ public class OrderService extends OrderServiceGrpc.OrderServiceImplBase {
             try {
                 // Call business validation procedure (becomes slow during high load)
                 float delaySec = slowdownDelay / 1000.0f;
+                
+                // Simulate random query timeout (10% of slowdowns)
+                if (Math.random() < 0.1) {
+                    throw new org.springframework.dao.QueryTimeoutException("Database connection pool exhausted during compliance check");
+                }
+                
                 orderRepository.validateOrderCompliance(delaySec);
+            } catch (org.springframework.dao.QueryTimeoutException e) {
+                throw e; // Propagate timeout to create failed span
             } catch (Exception e) {
                 // If business procedure fails, fallback to simple processing
                 try {

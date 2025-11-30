@@ -60,8 +60,14 @@ public class ShippingService extends ShippingServiceGrpc.ShippingServiceImplBase
                 int rate = Integer.parseInt(slowdownRateStr);
                 float delaySec = Integer.parseInt(slowdownDelayStr) / 1000.0f;
                 if (Math.random() * 100 < rate) {
+                    // Simulate random query timeout (10% of slowdowns)
+                    if (Math.random() < 0.1) {
+                        throw new org.springframework.dao.QueryTimeoutException("Connection timeout during analytics query");
+                    }
                     shipmentRepository.generateShippingAnalytics(delaySec);
                 }
+            } catch (org.springframework.dao.QueryTimeoutException e) {
+                throw e;
             } catch (Exception e) {
                 // Ignore if analytics generation fails
             }

@@ -56,8 +56,14 @@ run_simulation() {
     echo "This simulates correlated failures across the microservices architecture"
     echo "to demonstrate Dynatrace Davis AI anomaly detection and root cause analysis."
 
+    # Generate unique version with realistic commit hash
+    local bad_hash=$(openssl rand -hex 6)
+    local good_hash=$(openssl rand -hex 6)
+    local bad_version="v2.0.0-green-${bad_hash}"
+    local good_version="v1.0.0-blue-${good_hash}"
+
     # 1. Send Deployment Started
-    send_sdlc_event "started" "v2.0.0-green"
+    send_sdlc_event "started" "$bad_version"
 
     # 2. Correlated Failure Episode (10 minutes)
     # Simulates a problematic deployment with cascading failures:
@@ -68,7 +74,7 @@ run_simulation() {
     echo "Starting correlated failure simulation (10 minutes)..."
     echo "Injecting failures: DB timeouts, HTTP 500s, messaging failures, gRPC errors"
 
-    echo "🔥 CHAOS MODE ON - Simulating problematic deployment v2.0.0-green"
+    echo "🔥 CHAOS MODE ON - Simulating problematic deployment $bad_version"
 
     # Check if chaos mode is already active
     chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
@@ -122,7 +128,7 @@ run_simulation() {
     # Wait 10 minutes for chaos to show impact
     sleep 600
 
-    echo "✅ CHAOS MODE OFF - Rolling back to stable version v1.0.0-blue"
+    echo "✅ CHAOS MODE OFF - Rolling back to stable version $good_version"
 
     # Check if cleanup is needed
     chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
@@ -144,10 +150,11 @@ run_simulation() {
     fi
 
     # 3. Send Deployment Finished (Rollback to Good)
-    send_sdlc_event "finished" "v1.0.0-blue"
+    send_sdlc_event "finished" "$good_version"
 
     echo "Rollback complete - System should return to baseline performance."
     echo "Davis AI should detect the anomaly period and correlate it with the deployment event."
+    echo "Bad deployment: $bad_version → Good deployment: $good_version"
 }
 
 if [ "$1" == "manual" ]; then

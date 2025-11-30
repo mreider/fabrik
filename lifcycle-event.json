@@ -5,7 +5,7 @@
     "js_set_parameters": {
       "name": "js_set_parameters",
       "input": {
-        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\n\nexport default async function () {\n  const ex = await execution()\n  const eventContext = ex.event()\n  const props = eventContext.properties || {}\n\n  const version = props[\"service.version\"] || \"unknown\"\n  const deploymentName = props[\"cicd.deployment.name\"] || \"unknown\"\n\n  return {\n    version: version,\n    deploymentName: deploymentName\n  }\n}\n"
+        "script": "import { execution } from \"@dynatrace-sdk/automation-utils\"\n\nexport default async function () {\n  const ex = await execution()\n  const eventContext = ex.event()\n  \n  // Properties can be at top level or nested in properties object\n  const version = eventContext[\"service.version\"] || eventContext.properties?.[\"service.version\"] || \"unknown\"\n  const deploymentName = eventContext[\"cicd.deployment.name\"] || eventContext.properties?.[\"cicd.deployment.name\"] || \"unknown\"\n\n  console.log(`Extracted version: ${version}, deploymentName: ${deploymentName}`)\n  console.log(`Event context keys: ${Object.keys(eventContext).join(\", \")}`)\n\n  return {\n    version: version,\n    deploymentName: deploymentName\n  }\n}\n"
       },
       "action": "dynatrace.automations:run-javascript",
       "position": {

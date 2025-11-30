@@ -1,0 +1,214 @@
+{
+  "title": "Fulfillment Chaos Auto-Remediation",
+  "description": "Automated remediation workflow triggered by Site Reliability Guardian when fulfillment Kafka consumer SLO is breached. Detects chaos mode and disables failure injection to restore service health.",
+  "actor": {
+    "type": "system",
+    "name": "Site Reliability Guardian"
+  },
+  "trigger": {
+    "type": "Event",
+    "eventType": "bizevents",
+    "eventQuery": "event.type=\"guardian.validation.failed\" AND event.provider=\"dynatrace.site.reliability.guardian\" AND matchesPhrase(guardian.name, \"Fulfillment Chaos Detection Guardian\")",
+    "isActive": true
+  },
+  "tasks": [
+    {
+      "name": "check_chaos_active",
+      "description": "Check if chaos mode is currently active by querying Kubernetes for FAILURE_RATE environment variable",
+      "action": "dynatrace.kubernetes:get-environment-variables",
+      "input": {
+        "namespace": "fabrik-oa",
+        "deploymentName": "fulfillment",
+        "envVarName": "FAILURE_RATE"
+      },
+      "position": {
+        "x": 0,
+        "y": 1
+      },
+      "conditions": {
+        "states": {
+          "check_chaos_active": "OK"
+        },
+        "custom": "{{ result('check_chaos_active').envVarValue != null and result('check_chaos_active').envVarValue != '' }}"
+      }
+    },
+    {
+      "name": "get_recent_deployment",
+      "description": "Check for recent SDLC deployment event (v2.0.0-green) within last 15 minutes",
+      "action": "dynatrace.site.reliability.guardian:run-guardian-validation",
+      "input": {
+        "guardianId": "{{ _.guardianId }}",
+        "timeframe": "-15m"
+      },
+      "position": {
+        "x": 0,
+        "y": 2
+      },
+      "conditions": {
+        "states": {
+          "get_recent_deployment": "OK"
+        }
+      }
+    },
+    {
+      "name": "send_alert_notification",
+      "description": "Send Slack notification about SLO breach and pending auto-remediation",
+      "action": "dynatrace.slack:post-message",
+      "input": {
+        "channel": "C01234567",
+        "message": "🚨 *Fulfillment SLO Breach Detected*\\n\\n*Service:* fulfillment\\n*Issue:* Kafka consumer error rate: {{ _.sloValue }}%\\n*Threshold:* 95%\\n*Root Cause:* QueryTimeoutException + KafkaException\\n*Action:* Auto-remediation starting...\\n*Expected Recovery:* 2-3 minutes\\n\\n_Chaos mode detected - disabling failure injection_",
+        "reaction": ["fire", "robot_face"]
+      },
+      "position": {
+        "x": 0,
+        "y": 3
+      }
+    },
+    {
+      "name": "disable_chaos_fabrik_oa",
+      "description": "Remove chaos environment variables from fulfillment deployment in fabrik-oa namespace",
+      "action": "dynatrace.kubernetes:run-kubectl-command",
+      "input": {
+        "command": "set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n fabrik-oa"
+      },
+      "position": {
+        "x": 0,
+        "y": 4
+      }
+    },
+    {
+      "name": "disable_chaos_fabrik_ot",
+      "description": "Remove chaos environment variables from fulfillment deployment in fabrik-ot namespace",
+      "action": "dynatrace.kubernetes:run-kubectl-command",
+      "input": {
+        "command": "set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n fabrik-ot"
+      },
+      "position": {
+        "x": 1,
+        "y": 4
+      }
+    },
+    {
+      "name": "disable_chaos_fabrik_oa_2",
+      "description": "Remove chaos environment variables from fulfillment deployment in fabrik-oa-2 namespace",
+      "action": "dynatrace.kubernetes:run-kubectl-command",
+      "input": {
+        "command": "set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n fabrik-oa-2"
+      },
+      "position": {
+        "x": 2,
+        "y": 4
+      }
+    },
+    {
+      "name": "send_sdlc_rollback_event",
+      "description": "Send SDLC event to mark auto-rollback in Dynatrace",
+      "action": "dynatrace.automations:http-function",
+      "input": {
+        "url": "{{ DT_API_URL }}/api/v2/events/ingest",
+        "method": "POST",
+        "headers": {
+          "Authorization": "Api-Token {{ DT_API_TOKEN }}",
+          "Content-Type": "application/json"
+        },
+        "payload": {
+          "eventType": "CUSTOM_INFO",
+          "title": "ArgoCD Deployment finished for v1.0.0-blue (auto-rollback)",
+          "properties": {
+            "event.kind": "SDLC_EVENT",
+            "event.category": "task",
+            "event.type": "deployment",
+            "event.status": "finished",
+            "event.provider": "argocd",
+            "cicd.deployment.name": "Deploy Services v1.0.0-blue",
+            "cicd.deployment.status": "succeeded",
+            "cicd.deployment.release_stage": "production",
+            "service.version": "v1.0.0-blue",
+            "task.outcome": "succeeded",
+            "remediation.type": "auto-rollback",
+            "remediation.trigger": "site-reliability-guardian",
+            "remediation.service": "fulfillment"
+          }
+        }
+      },
+      "position": {
+        "x": 0,
+        "y": 5
+      }
+    },
+    {
+      "name": "wait_for_stabilization",
+      "description": "Wait 2 minutes for pods to restart and metrics to stabilize",
+      "action": "dynatrace.automations:sleep",
+      "input": {
+        "duration": 120
+      },
+      "position": {
+        "x": 0,
+        "y": 6
+      }
+    },
+    {
+      "name": "revalidate_slo",
+      "description": "Re-run guardian validation to confirm SLO is back in compliance",
+      "action": "dynatrace.site.reliability.guardian:run-guardian-validation",
+      "input": {
+        "guardianId": "{{ _.guardianId }}",
+        "timeframe": "-3m"
+      },
+      "position": {
+        "x": 0,
+        "y": 7
+      }
+    },
+    {
+      "name": "send_success_notification",
+      "description": "Send success notification to Slack",
+      "action": "dynatrace.slack:post-message",
+      "input": {
+        "channel": "C01234567",
+        "message": "✅ *Auto-Remediation Complete*\\n\\n*Service:* fulfillment\\n*New Success Rate:* {{ result('revalidate_slo').sloValue }}%\\n*Status:* {{ result('revalidate_slo').validationStatus }}\\n*Recovery Time:* ~2 minutes\\n*Action Taken:* Disabled chaos failure injection\\n*Deployment:* Rolled back to v1.0.0-blue\\n\\n_System health restored. Monitoring continues._",
+        "reaction": ["white_check_mark", "chart_with_upwards_trend"]
+      },
+      "position": {
+        "x": 0,
+        "y": 8
+      },
+      "conditions": {
+        "states": {
+          "revalidate_slo": "OK"
+        },
+        "custom": "{{ result('revalidate_slo').validationStatus == 'PASS' }}"
+      }
+    },
+    {
+      "name": "send_failure_notification",
+      "description": "Send failure notification if remediation did not restore SLO",
+      "action": "dynatrace.slack:post-message",
+      "input": {
+        "channel": "C01234567",
+        "message": "⚠️ *Auto-Remediation Incomplete*\\n\\n*Service:* fulfillment\\n*Current Success Rate:* {{ result('revalidate_slo').sloValue }}%\\n*Status:* {{ result('revalidate_slo').validationStatus }}\\n*Issue:* SLO still breached after remediation\\n\\n_Manual investigation required. This may be a real production issue, not chaos._",
+        "reaction": ["warning", "eyes"]
+      },
+      "position": {
+        "x": 1,
+        "y": 8
+      },
+      "conditions": {
+        "states": {
+          "revalidate_slo": "OK"
+        },
+        "custom": "{{ result('revalidate_slo').validationStatus != 'PASS' }}"
+      }
+    }
+  ],
+  "schemaVersion": "3",
+  "_implementation_notes": [
+    "This is a template. Actual implementation requires:",
+    "1. Create workflow in Dynatrace UI: Workflows > Create workflow",
+    "2. Configure Kubernetes integration with service account permissions",
+    "3. Set up Slack integration and replace C01234567 with real channel ID",
+    "4. Adjust conditions and thresholds based on actual deployment patterns",
+    "5. Test with manual SLO breach before enabling auto-trigger"
+  ]
+}
