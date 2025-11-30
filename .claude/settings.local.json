@@ -18,7 +18,8 @@
       "Bash(kubectl set image:*)",
       "Bash(kubectl rollout status:*)",
       "Bash(kubectl describe:*)",
-      "Bash(kubectl rollout undo:*)"
+      "Bash(kubectl rollout undo:*)",
+      "Bash(chmod:*)"
     ],
     "deny": [],
     "ask": []

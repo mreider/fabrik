@@ -69,29 +69,41 @@ run_simulation() {
     echo "Injecting failures: DB timeouts, HTTP 500s, messaging failures, gRPC errors"
 
     echo "🔥 CHAOS MODE ON - Simulating problematic deployment v2.0.0-green"
-    for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
-         # Core services with high failure rates (simulate DB connection pool exhaustion)
-         kubectl set env deployment/orders FAILURE_RATE=30 -n $ns
-         kubectl set env deployment/fulfillment FAILURE_RATE=30 -n $ns
 
-         # Inventory service (inventory lookup timeouts + message processing slowdowns)
-         kubectl set env deployment/inventory FAILURE_RATE=25 MSG_SLOWDOWN_RATE=50 MSG_SLOWDOWN_DELAY=1500 -n $ns
+    # Check if chaos mode is already active
+    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
 
-         # Shipping services (messaging and gRPC failures + message processing slowdowns)
-         kubectl set env deployment/shipping-receiver FAILURE_RATE=20 MSG_SLOWDOWN_RATE=45 MSG_SLOWDOWN_DELAY=1200 -n $ns
-         kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns
+    if [[ -n "$chaos_active" ]]; then
+        echo "ℹ️  Chaos mode already active (FAILURE_RATE=$chaos_active), skipping environment setup"
+    else
+        echo "🔧 Setting up chaos environment variables..."
+        for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
+             echo "  Configuring chaos in namespace: $ns"
 
-         # Frontend (HTTP 500s and slow responses)
-         kubectl set env deployment/frontend FAILURE_RATE=15 -n $ns
+             # Core services with high failure rates (simulate DB connection pool exhaustion)
+             kubectl set env deployment/orders FAILURE_RATE=30 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/fulfillment FAILURE_RATE=30 -n $ns >/dev/null 2>&1
 
-         # Independent slowdown injection (affects successful requests)
-         kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=2000 -n $ns
-         kubectl set env deployment/fulfillment SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1500 -n $ns
-         kubectl set env deployment/inventory SLOWDOWN_RATE=30 SLOWDOWN_DELAY=3000 -n $ns
-         kubectl set env deployment/shipping-receiver SLOWDOWN_RATE=25 SLOWDOWN_DELAY=1000 -n $ns
-         kubectl set env deployment/shipping-processor SLOWDOWN_RATE=20 SLOWDOWN_DELAY=2500 -n $ns
-         kubectl set env deployment/frontend SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1800 -n $ns
-    done
+             # Inventory service (inventory lookup timeouts + message processing slowdowns)
+             kubectl set env deployment/inventory FAILURE_RATE=25 MSG_SLOWDOWN_RATE=50 MSG_SLOWDOWN_DELAY=1500 -n $ns >/dev/null 2>&1
+
+             # Shipping services (messaging and gRPC failures + message processing slowdowns)
+             kubectl set env deployment/shipping-receiver FAILURE_RATE=20 MSG_SLOWDOWN_RATE=45 MSG_SLOWDOWN_DELAY=1200 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns >/dev/null 2>&1
+
+             # Frontend (HTTP 500s and slow responses)
+             kubectl set env deployment/frontend FAILURE_RATE=15 -n $ns >/dev/null 2>&1
+
+             # Independent slowdown injection (affects successful requests)
+             kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=2000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/fulfillment SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1500 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/inventory SLOWDOWN_RATE=30 SLOWDOWN_DELAY=3000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-receiver SLOWDOWN_RATE=25 SLOWDOWN_DELAY=1000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor SLOWDOWN_RATE=20 SLOWDOWN_DELAY=2500 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/frontend SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1800 -n $ns >/dev/null 2>&1
+        done
+        echo "✅ Chaos environment variables configured"
+    fi
 
     echo "Chaos simulation will run for 10 minutes..."
     echo "Expected symptoms:"
@@ -111,14 +123,25 @@ run_simulation() {
     sleep 600
 
     echo "✅ CHAOS MODE OFF - Rolling back to stable version v1.0.0-blue"
-    for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
-         kubectl set env deployment/orders FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
-         kubectl set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
-         kubectl set env deployment/inventory FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns
-         kubectl set env deployment/shipping-receiver FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns
-         kubectl set env deployment/shipping-processor FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
-         kubectl set env deployment/frontend FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns
-    done
+
+    # Check if cleanup is needed
+    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
+
+    if [[ -z "$chaos_active" ]]; then
+        echo "ℹ️  Chaos mode already disabled, skipping cleanup"
+    else
+        echo "🔧 Cleaning up chaos environment variables..."
+        for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
+             echo "  Cleaning chaos in namespace: $ns"
+             kubectl set env deployment/orders FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/inventory FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-receiver FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/frontend FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+        done
+        echo "✅ Chaos environment variables cleaned up"
+    fi
 
     # 3. Send Deployment Finished (Rollback to Good)
     send_sdlc_event "finished" "v1.0.0-blue"
