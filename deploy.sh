@@ -30,9 +30,11 @@ kubectl apply -f k8s/dynakube.yaml
 # Apply Applications
 kubectl apply -f k8s/fabrik-oa.yaml
 kubectl apply -f k8s/fabrik-ot.yaml
+kubectl apply -f k8s/fabrik-oa-2.yaml
 
 # Restart deployments to pick up changes
 kubectl rollout restart deployment -n fabrik-oa
 kubectl rollout restart deployment -n fabrik-ot
+kubectl rollout restart deployment -n fabrik-oa-2
 
 echo "Deployment complete."
