@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+            <!-- Include MDC fields (dt.trace_id, dt.span_id, etc. injected by OneAgent) -->
+            <includeMdcKeyName>dt.trace_id</includeMdcKeyName>
+            <includeMdcKeyName>dt.span_id</includeMdcKeyName>
+            <includeMdcKeyName>dt.entity.process_group_instance</includeMdcKeyName>
+            <includeMdcKeyName>dt.trace_sampled</includeMdcKeyName>
+            <!-- Include all other MDC fields -->
+            <includeMdc>true</includeMdc>
+            <!-- Add service name for correlation -->
+            <customFields>{"service.name":"shipping-receiver"}</customFields>
+        </encoder>
+    </appender>
+
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+</configuration>

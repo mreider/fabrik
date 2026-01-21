@@ -1,0 +1,110 @@
+{
+  "version": 13,
+  "variables": [],
+  "tiles": {
+    "0": {
+      "type": "markdown",
+      "title": "",
+      "content": "# Fabrik Demo - Services Overview\n\n**Namespaces:** `fabrik-ot` (OpenTelemetry) | `fabrik-oa` / `fabrik-oa-2` (OneAgent)"
+    },
+    "1": {
+      "type": "data",
+      "title": "Services by Namespace",
+      "query": "fetch dt.entity.service\n| filter contains(entity.name, \"fabrik\")\n| parse entity.name, \"LD:namespace ' -- ' LD:service\"\n| summarize count(), by: {namespace}\n| sort count() desc"
+    },
+    "2": {
+      "type": "data",
+      "title": "Request Throughput by Service (last 2h)",
+      "query": "timeseries requests = sum(dt.service.request.count), by: {dt.entity.service}\n| filter contains(dt.entity.service, \"fabrik\")\n| fieldsRename service = dt.entity.service"
+    },
+    "3": {
+      "type": "data",
+      "title": "Error Rate by Service",
+      "query": "timeseries errors = sum(dt.service.request.failure_count), by: {dt.entity.service}\n| filter contains(dt.entity.service, \"fabrik\")"
+    },
+    "4": {
+      "type": "markdown",
+      "title": "",
+      "content": "## OTel vs OneAgent Comparison"
+    },
+    "5": {
+      "type": "data",
+      "title": "Response Time - OTel (fabrik-ot)",
+      "query": "timeseries avg(dt.service.request.response_time), by: {dt.entity.service}\n| filter contains(dt.entity.service, \"fabrik-ot\")"
+    },
+    "6": {
+      "type": "data",
+      "title": "Response Time - OneAgent (fabrik-oa)",
+      "query": "timeseries avg(dt.service.request.response_time), by: {dt.entity.service}\n| filter contains(dt.entity.service, \"fabrik-oa\") AND NOT contains(dt.entity.service, \"fabrik-oa-2\")"
+    },
+    "7": {
+      "type": "data",
+      "title": "Response Time - OneAgent (fabrik-oa-2)",
+      "query": "timeseries avg(dt.service.request.response_time), by: {dt.entity.service}\n| filter contains(dt.entity.service, \"fabrik-oa-2\")"
+    },
+    "8": {
+      "type": "markdown",
+      "title": "",
+      "content": "## Database Performance"
+    },
+    "9": {
+      "type": "data",
+      "title": "DB Spans by Operation",
+      "query": "fetch spans\n| filter db.system == \"postgresql\"\n| filter isNotNull(db.operation)\n| summarize count(), by: {db.operation, service.name}\n| sort count() desc\n| limit 20"
+    },
+    "10": {
+      "type": "data",
+      "title": "DB Query Duration (p95)",
+      "query": "fetch spans\n| filter db.system == \"postgresql\"\n| filter isNotNull(db.operation)\n| summarize p95_duration = percentile(duration, 95), by: {service.name, db.operation}\n| sort p95_duration desc"
+    },
+    "11": {
+      "type": "data",
+      "title": "Slowest DB Queries",
+      "query": "fetch spans\n| filter db.system == \"postgresql\"\n| filter isNotNull(db.statement) AND db.statement != \"\"\n| summarize avg_duration = avg(duration), count = count(), by: {db.statement}\n| sort avg_duration desc\n| limit 10"
+    },
+    "12": {
+      "type": "markdown",
+      "title": "",
+      "content": "## Traffic & Errors"
+    },
+    "13": {
+      "type": "data",
+      "title": "HTTP Status Codes",
+      "query": "fetch spans\n| filter isNotNull(http.response.status_code)\n| summarize count(), by: {http.response.status_code, service.name}\n| sort count() desc"
+    },
+    "14": {
+      "type": "data",
+      "title": "Failed Spans by Service",
+      "query": "fetch spans\n| filter span.kind == \"server\" OR span.kind == \"consumer\"\n| summarize \n    total = count(),\n    failed = countIf(otel.status_code == \"ERROR\" OR http.response.status_code >= 500)\n  , by: {service.name}\n| fieldsAdd error_rate = 100.0 * failed / total\n| sort error_rate desc"
+    },
+    "15": {
+      "type": "data",
+      "title": "Kafka Message Processing",
+      "query": "fetch spans\n| filter messaging.system == \"kafka\"\n| summarize count(), avg_duration = avg(duration), by: {messaging.operation, service.name}\n| sort count() desc"
+    },
+    "16": {
+      "type": "data",
+      "title": "gRPC Calls",
+      "query": "fetch spans\n| filter rpc.system == \"grpc\"\n| summarize count(), avg_duration = avg(duration), by: {rpc.method, service.name}\n| sort count() desc"
+    }
+  },
+  "layouts": {
+    "0": {"x": 0, "y": 0, "w": 24, "h": 2},
+    "1": {"x": 0, "y": 2, "w": 8, "h": 6},
+    "2": {"x": 8, "y": 2, "w": 16, "h": 6},
+    "3": {"x": 0, "y": 8, "w": 24, "h": 6},
+    "4": {"x": 0, "y": 14, "w": 24, "h": 1},
+    "5": {"x": 0, "y": 15, "w": 8, "h": 6},
+    "6": {"x": 8, "y": 15, "w": 8, "h": 6},
+    "7": {"x": 16, "y": 15, "w": 8, "h": 6},
+    "8": {"x": 0, "y": 21, "w": 24, "h": 1},
+    "9": {"x": 0, "y": 22, "w": 8, "h": 6},
+    "10": {"x": 8, "y": 22, "w": 8, "h": 6},
+    "11": {"x": 16, "y": 22, "w": 8, "h": 6},
+    "12": {"x": 0, "y": 28, "w": 24, "h": 1},
+    "13": {"x": 0, "y": 29, "w": 12, "h": 6},
+    "14": {"x": 12, "y": 29, "w": 12, "h": 6},
+    "15": {"x": 0, "y": 35, "w": 12, "h": 6},
+    "16": {"x": 12, "y": 35, "w": 12, "h": 6}
+  }
+}

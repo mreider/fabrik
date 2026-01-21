@@ -1,0 +1,156 @@
+package com.fabrik.shipping.receiver;
+
+import com.fabrik.shipping.receiver.dto.ShipmentRequest;
+import com.fabrik.shipping.receiver.dto.ShipmentResponse;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
+import io.opentelemetry.api.GlobalOpenTelemetry;
+import io.opentelemetry.api.trace.Span;
+import io.opentelemetry.api.trace.SpanKind;
+import io.opentelemetry.api.trace.Tracer;
+import io.opentelemetry.context.Scope;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+@Service
+public class ShippingReceiverService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ShippingReceiverService.class);
+
+    private final RestTemplate restTemplate;
+    private final String shippingProcessorUrl;
+
+    public ShippingReceiverService(RestTemplate restTemplate,
+                                   @Value("${shipping-processor.service.url:http://shipping-processor:8080}") String shippingProcessorUrl) {
+        this.restTemplate = restTemplate;
+        this.shippingProcessorUrl = shippingProcessorUrl;
+    }
+
+    @KafkaListener(topics = "inventory-reserved", groupId = "shipping-group")
+    public void receive(String message) {
+        // Apply message processing slowdown (deserialization and validation)
+        String msgSlowdownRateStr = System.getenv("MSG_SLOWDOWN_RATE");
+        String msgSlowdownDelayStr = System.getenv("MSG_SLOWDOWN_DELAY");
+        if (msgSlowdownRateStr != null && msgSlowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(msgSlowdownRateStr);
+                int delayMs = Integer.parseInt(msgSlowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    // Create explicit messaging span for the slowdown so Dynatrace categorizes it as Messaging
+                    Tracer tracer = GlobalOpenTelemetry.getTracer("com.fabrik.shipping.receiver");
+                    Span msgSpan = tracer.spanBuilder("message deserialization")
+                            .setSpanKind(SpanKind.CONSUMER)
+                            .setAttribute("messaging.system", "kafka")
+                            .setAttribute("messaging.operation.type", "process")
+                            .setAttribute("messaging.destination.name", "inventory-reserved")
+                            .startSpan();
+                    try (Scope scope = msgSpan.makeCurrent()) {
+                        logger.debug("Simulating message processing delay: {}ms", delayMs);
+                        Thread.sleep(delayMs);
+                    } finally {
+                        msgSpan.end();
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore if message processing simulation fails
+            }
+        }
+
+        // Check for failure injection
+        String failureMode = System.getenv("FAILURE_MODE");
+        String failureRateStr = System.getenv("FAILURE_RATE");
+        boolean shouldFail = "true".equals(failureMode);
+
+        if (!shouldFail && failureRateStr != null) {
+            try {
+                int rate = Integer.parseInt(failureRateStr);
+                if (Math.random() * 100 < rate) {
+                    shouldFail = true;
+                }
+            } catch (NumberFormatException e) {
+                // Ignore invalid rate
+            }
+        }
+
+        if (shouldFail) {
+            // Wrap in messaging span so Dynatrace categorizes it as "Message processing"
+            Tracer tracer = GlobalOpenTelemetry.getTracer("com.fabrik.shipping.receiver");
+            Span failSpan = tracer.spanBuilder("message validation")
+                    .setSpanKind(SpanKind.CONSUMER)
+                    .setAttribute("messaging.system", "kafka")
+                    .setAttribute("messaging.operation.type", "process")
+                    .setAttribute("messaging.destination.name", "inventory-reserved")
+                    .startSpan();
+            try (Scope scope = failSpan.makeCurrent()) {
+                Thread.sleep(3000);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } finally {
+                failSpan.end();
+            }
+            throw new RuntimeException("Message processing failure: Unable to parse shipping message or connection timeout to shipping processor");
+        }
+
+        // Apply slowdown via message queue performance analysis (independent of failures)
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                int delayMs = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    // Wrap in messaging span so Dynatrace categorizes it as "Message processing"
+                    Tracer tracer = GlobalOpenTelemetry.getTracer("com.fabrik.shipping.receiver");
+                    Span slowSpan = tracer.spanBuilder("message queue analysis")
+                            .setSpanKind(SpanKind.CONSUMER)
+                            .setAttribute("messaging.system", "kafka")
+                            .setAttribute("messaging.operation.type", "process")
+                            .setAttribute("messaging.destination.name", "inventory-reserved")
+                            .startSpan();
+                    try (Scope scope = slowSpan.makeCurrent()) {
+                        logger.debug("Simulating message queue performance analysis");
+                        Thread.sleep(delayMs);
+                    } finally {
+                        slowSpan.end();
+                    }
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore if queue analysis simulation fails
+            }
+        }
+
+        // Message format: orderId:itemId
+        String[] parts = message.split(":");
+        String orderId = parts[0];
+        String itemId = parts[1];
+
+        Span span = Span.current();
+        span.setAttribute("messaging.operation.type", "receive");
+        span.setAttribute("messaging.system", "kafka");
+
+        logger.info("Received shipping request for order: {}", orderId);
+
+        // Call Processor via REST
+        ShipmentRequest request = new ShipmentRequest(orderId, itemId, 1);
+
+        try {
+            ShipmentResponse response = restTemplate.postForObject(
+                shippingProcessorUrl + "/api/shipments",
+                request,
+                ShipmentResponse.class
+            );
+            if (response != null) {
+                logger.info("Shipment processed: {}", response.trackingNumber());
+            }
+        } catch (Exception e) {
+            logger.error("Failed to process shipment: {}", e.getMessage());
+        }
+    }
+}

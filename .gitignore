@@ -1,0 +1,58 @@
+# Build artifacts
+target/
+*.jar
+*.class
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Secrets and sensitive data - NEVER COMMIT THESE
+.mcp.json
+secrets.sh
+secrets/
+*.secret
+*.secrets
+k8s/secrets.yaml
+.env
+.env.local
+.env.*.local
+**/secrets/**
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/*.crt
+api-keys.txt
+tokens.txt
+passwords.txt
+credentials.json
+service-account.json
+
+# Environment-specific configs with potential secrets
+docker-compose.override.yml
+config.local.yml
+application-local.properties
+application-*.properties
+
+# Temporary files that might contain secrets
+temp-*
+tmp-*
+*.tmp
+*.temp
+*.log
+*.out
+
+# Database files that might contain sensitive data
+*.db
+*.sqlite
+*.sqlite3
+
+# Claude Code local settings (might contain API keys)
+.claude/settings.local.json
+.claude/

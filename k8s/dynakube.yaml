@@ -1,0 +1,216 @@
+apiVersion: dynatrace.com/v1beta5
+kind: DynaKube
+metadata:
+  annotations:
+    kubectl.kubernetes.io/last-applied-configuration: |
+      {"apiVersion":"dynatrace.com/v1beta4","kind":"DynaKube","metadata":{"annotations":{},"name":"dynakube","namespace":"dynatrace"},"spec":{"activeGate":{"capabilities":["routing","kubernetes-monitoring","metrics-ingest","dynatrace-api"],"resources":{"limits":{"cpu":"500m","memory":"1Gi"},"requests":{"cpu":"300m","memory":"512Mi"}}},"apiUrl":"https://abl46885.dev.dynatracelabs.com/api","logMonitoring":{},"metadataEnrichment":{"enabled":true,"namespaceSelector":{"matchLabels":{"dynatrace.com/enrich":"true"}}},"oneAgent":{"cloudNativeFullStack":{"namespaceSelector":{"matchLabels":{"dynatrace.com/inject":"true"}}}},"tokens":"dynakube"}}
+  creationTimestamp: "2025-11-28T10:49:26Z"
+  generation: 3
+  name: dynakube
+  namespace: dynatrace
+  resourceVersion: "1768918970329855006"
+  uid: a9ef3cfa-b584-4961-9fed-4128c199e367
+spec:
+  activeGate:
+    capabilities:
+    - routing
+    - kubernetes-monitoring
+    - metrics-ingest
+    - dynatrace-api
+    - debugging
+    resources:
+      limits:
+        cpu: 500m
+        memory: 1Gi
+      requests:
+        cpu: 300m
+        memory: 512Mi
+  apiUrl: https://abl46885.dev.dynatracelabs.com/api
+  logMonitoring: {}
+  metadataEnrichment:
+    enabled: true
+    namespaceSelector:
+      matchLabels:
+        dynatrace.com/enrich: "true"
+  oneAgent:
+    cloudNativeFullStack:
+      namespaceSelector:
+        matchLabels:
+          dynatrace.com/inject: "true"
+      oneAgentResources: {}
+  templates:
+    extensionExecutionController:
+      imageRef: {}
+      resources: {}
+    kspmNodeConfigurationCollector:
+      imageRef: {}
+      nodeAffinity: {}
+      resources: {}
+    otelCollector:
+      imageRef: {}
+      resources: {}
+  tokens: dynakube
+status:
+  activeGate:
+    connectionInfoStatus:
+      endpoints: https://deve2e-us-east-1d.dev.dynatracelabs.com/communication,https://sg-us-east-1-54-88-45-104-deve2e.dev.dynatracelabs.com/communication,https://deve2e-us-east-1b.dev.dynatracelabs.com/communication,https://sg-us-east-1-52-5-34-162-deve2e.dev.dynatracelabs.com/communication,https://deve2e-us-east-1a.dev.dynatracelabs.com/communication,https://sg-us-east-1-54-164-6-77-deve2e.dev.dynatracelabs.com/communication,https://deve2e-us-east-1b.dev.dynatracelabs.com/communication,https://sg-us-east-1-52-44-29-255-deve2e.dev.dynatracelabs.com/communication,https://deve2e-us-east-1a.dev.dynatracelabs.com/communication,https://sg-us-east-1-54-211-153-171-deve2e.dev.dynatracelabs.com/communication,https://abl46885.dev.dynatracelabs.com:443/communication
+      tenantTokenHash: "669185990"
+      tenantUUID: abl46885
+    imageID: abl46885.dev.dynatracelabs.com/linux/activegate:1.332.0-raw
+    lastProbeTimestamp: "2026-01-20T14:14:37Z"
+    serviceIPs:
+    - 34.118.226.21
+    source: tenant-registry
+    version: 1.332.0.20260120-041934
+  codeModules:
+    lastProbeTimestamp: "2026-01-20T14:14:37Z"
+    source: tenant-registry
+    version: 1.332.0.20260119-081849
+  conditions:
+  - lastTransitionTime: "2026-01-09T14:30:25Z"
+    message: Token ready
+    reason: TokenReady
+    status: "True"
+    type: Tokens
+  - lastTransitionTime: "2026-01-20T14:14:37Z"
+    message: dynakube-activegate-tenant-secret created
+    reason: SecretCreated
+    status: "True"
+    type: ActiveGateConnectionInfo
+  - lastTransitionTime: "2025-12-22T07:02:13Z"
+    message: Version verified for component.
+    reason: Verified
+    status: "True"
+    type: ActiveGateVersion
+  - lastTransitionTime: "2025-11-30T21:29:25Z"
+    message: dynakube-pull-secret is not present or outdated
+    reason: SecretOutdated
+    status: "False"
+    type: PullSecret
+  - lastTransitionTime: "2025-12-27T10:50:07Z"
+    message: secret created 24 day(s) ago, token:dt0g02.ZKX7CJCG
+    reason: SecretCreated
+    status: "True"
+    type: ActiveGateAuthTokenSecret
+  - lastTransitionTime: "2026-01-20T14:14:37Z"
+    message: Kubernetes Cluster MEID is up to date
+    reason: StatusUpdated
+    status: "True"
+    type: MonitoredEntity
+  - lastTransitionTime: "2026-01-20T14:14:37Z"
+    message: dynakube-oneagent-tenant-secret created
+    reason: SecretCreated
+    status: "True"
+    type: OneAgentConnectionInfo
+  - lastTransitionTime: "2025-12-22T06:57:04Z"
+    message: Version verified for component.
+    reason: Verified
+    status: "True"
+    type: CodeModulesVersion
+  - lastTransitionTime: "2026-01-09T14:03:46Z"
+    message: Namespaces mapped and secrets created
+    reason: SecretsCreated
+    status: "True"
+    type: CodeModulesInjection
+  - lastTransitionTime: "2026-01-20T14:14:37Z"
+    message: Metadata-enrichment rules are up-to-date in the status
+    reason: StatusUpdated
+    status: "True"
+    type: MetadataEnrichmentRules
+  - lastTransitionTime: "2026-01-09T14:03:46Z"
+    message: Namespaces mapped and secrets created
+    reason: SecretsCreated
+    status: "True"
+    type: MetadataEnrichment
+  - lastTransitionTime: "2025-12-22T07:02:12Z"
+    message: Version verified for component.
+    reason: Verified
+    status: "True"
+    type: OneAgentVersion
+  - lastTransitionTime: "2026-01-13T01:04:54Z"
+    message: The OneAgent DaemonSet was created successfully.
+    reason: DaemonSetCreated
+    status: "True"
+    type: OneAgentDaemonSet
+  - lastTransitionTime: "2025-11-28T10:50:00Z"
+    message: dynakube-activegate-tls-secret created
+    reason: SecretCreated
+    status: "True"
+    type: TLSSecret
+  - lastTransitionTime: "2026-01-13T00:34:48Z"
+    message: dynakube-activegate created
+    reason: StatefulSetCreated
+    status: "True"
+    type: ActiveGateStatefulSet
+  - lastTransitionTime: "2025-12-22T07:02:12Z"
+    message: LogMonitoring settings already exist, will not create new ones.
+    reason: LogMonSettingsExist
+    status: "True"
+    type: LogMonitoringSettings
+  dynatraceApi:
+    lastTokenScopeRequest: "2026-01-20T14:14:37Z"
+  kspm: {}
+  kubeSystemUUID: 5ddaab7f-5517-4b1d-ab14-7c9547a387e3
+  kubernetesClusterMEID: KUBERNETES_CLUSTER-7425EEBC56E195F3
+  kubernetesClusterName: fabrik-cluster
+  metadataEnrichment: {}
+  oneAgent:
+    connectionInfoStatus:
+      communicationHosts:
+      - host: deve2e-us-east-1b.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: deve2e-us-east-1d.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: sg-us-east-1-54-211-153-171-deve2e.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: sg-us-east-1-54-164-6-77-deve2e.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: sg-us-east-1-54-88-45-104-deve2e.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: dynakube-activegate.dynatrace
+        port: 443
+        protocol: https
+      - host: deve2e-us-east-1a.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: sg-us-east-1-52-44-29-255-deve2e.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: sg-us-east-1-52-5-34-162-deve2e.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: abl46885.dev.dynatracelabs.com
+        port: 443
+        protocol: https
+      - host: 34.118.226.21
+        port: 443
+        protocol: https
+      endpoints: https://34.118.226.21:443/communication;https://dynakube-activegate.dynatrace:443/communication;https://deve2e-us-east-1a.dev.dynatracelabs.com/communication;https://deve2e-us-east-1b.dev.dynatracelabs.com/communication;https://deve2e-us-east-1d.dev.dynatracelabs.com/communication;https://sg-us-east-1-54-211-153-171-deve2e.dev.dynatracelabs.com/communication;https://sg-us-east-1-52-44-29-255-deve2e.dev.dynatracelabs.com/communication;https://sg-us-east-1-54-164-6-77-deve2e.dev.dynatracelabs.com/communication;https://sg-us-east-1-52-5-34-162-deve2e.dev.dynatracelabs.com/communication;https://sg-us-east-1-54-88-45-104-deve2e.dev.dynatracelabs.com/communication;https://abl46885.dev.dynatracelabs.com:443
+      tenantTokenHash: "669185990"
+      tenantUUID: abl46885
+    healthcheck:
+      Interval: 10000000000
+      Retries: 3
+      StartPeriod: 1200000000000
+      Test:
+      - /usr/bin/watchdog-healthcheck64
+      Timeout: 30000000000
+    imageID: abl46885.dev.dynatracelabs.com/linux/oneagent:1.332.0-raw
+    instances:
+      gke-fabrik-demo-pool-highmem-24e1f434-d5lv:
+        ipAddress: 10.128.0.84
+        podName: dynakube-oneagent-c7tkh
+      gke-fabrik-demo-pool-highmem-24e1f434-n87g:
+        ipAddress: 10.128.0.19
+        podName: dynakube-oneagent-vd76w
+    lastInstanceStatusUpdate: "2026-01-20T14:19:38Z"
+    lastProbeTimestamp: "2026-01-20T14:14:37Z"
+    source: tenant-registry
+    version: 1.332.0.20260119-081849
+  phase: Running
+  updatedTimestamp: "2026-01-20T14:19:38Z"

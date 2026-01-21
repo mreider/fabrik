@@ -1,0 +1,65 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: argo-sa
+  namespace: default
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: argo-role
+rules:
+- apiGroups: ["apps"]
+  resources: ["deployments"]
+  verbs: ["get", "list", "patch", "update"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: argo-binding
+subjects:
+- kind: ServiceAccount
+  name: argo-sa
+  namespace: default
+roleRef:
+  kind: ClusterRole
+  name: argo-role
+  apiGroup: rbac.authorization.k8s.io
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: argo
+  namespace: default
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: argo
+  template:
+    metadata:
+      labels:
+        app: argo
+    spec:
+      serviceAccountName: argo-sa
+      containers:
+      - name: argo
+        image: ghcr.io/mreider/fabrik-argo-cd:main
+        imagePullPolicy: Always
+        env:
+        - name: DT_API_URL
+          value: "https://abl46885.dev.dynatracelabs.com/api"
+        - name: DT_API_TOKEN
+          valueFrom:
+            secretKeyRef:
+              name: argo-secrets
+              key: apiToken
+        volumeMounts:
+        - name: simulation-script
+          mountPath: /app/simulate.sh
+          subPath: simulate.sh
+      volumes:
+      - name: simulation-script
+        configMap:
+          name: argo-simulation-script
+          defaultMode: 0755

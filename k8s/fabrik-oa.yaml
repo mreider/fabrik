@@ -1,0 +1,341 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: postgres
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      containers:
+      - name: postgres
+        image: postgres:13
+        env:
+        - name: POSTGRES_USER
+          value: fabrik
+        - name: POSTGRES_PASSWORD
+          value: fabrik
+        - name: POSTGRES_DB
+          value: fabrik
+        ports:
+        - containerPort: 5432
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: kafka
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: kafka
+  template:
+    metadata:
+      labels:
+        app: kafka
+    spec:
+      containers:
+      - name: kafka
+        image: apache/kafka:3.7.0
+        env:
+        - name: KAFKA_NODE_ID
+          value: "1"
+        - name: KAFKA_PROCESS_ROLES
+          value: "broker,controller"
+        - name: KAFKA_LISTENERS
+          value: "PLAINTEXT://:9092,CONTROLLER://:9093"
+        - name: KAFKA_ADVERTISED_LISTENERS
+          value: "PLAINTEXT://kafka:9092"
+        - name: KAFKA_CONTROLLER_LISTENER_NAMES
+          value: "CONTROLLER"
+        - name: KAFKA_LISTENER_SECURITY_PROTOCOL_MAP
+          value: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+        - name: KAFKA_CONTROLLER_QUORUM_VOTERS
+          value: "1@kafka:9093"
+        - name: KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR
+          value: "1"
+        - name: KAFKA_TRANSACTION_STATE_LOG_MIN_ISR
+          value: "1"
+        - name: KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS
+          value: "0"
+        - name: KAFKA_NUM_PARTITIONS
+          value: "3"
+        ports:
+        - containerPort: 9092
+        - containerPort: 9093
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: kafka
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: kafka
+  ports:
+  - port: 9092
+    name: plaintext
+  - port: 9093
+    name: controller
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: orders
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: orders
+  template:
+    metadata:
+      labels:
+        app: orders
+    spec:
+      containers:
+      - name: orders
+        image: ghcr.io/mreider/fabrik-orders:main
+        imagePullPolicy: Always
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: DB_SLOWDOWN_RATE
+          value: "30"
+        - name: DB_SLOWDOWN_DELAY
+          value: "3000"
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: orders
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: orders
+  ports:
+  - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: ghcr.io/mreider/fabrik-frontend:main
+        imagePullPolicy: Always
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: ORDERS_HOST
+          value: orders
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: frontend
+  ports:
+  - port: 8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fulfillment
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: fulfillment
+  template:
+    metadata:
+      labels:
+        app: fulfillment
+    spec:
+      containers:
+      - name: fulfillment
+        image: ghcr.io/mreider/fabrik-fulfillment:main
+        imagePullPolicy: Always
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: MSG_SLOWDOWN_RATE
+          value: "30"
+        - name: MSG_SLOWDOWN_DELAY
+          value: "3000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: fab-proxy
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: fab-proxy
+  template:
+    metadata:
+      labels:
+        app: fab-proxy
+    spec:
+      containers:
+      - name: fab-proxy
+        image: ghcr.io/mreider/fabrik-fab-proxy:main
+        imagePullPolicy: Always
+        env:
+        - name: FRONTEND_URL
+          value: http://frontend:8080
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: inventory
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: inventory
+  template:
+    metadata:
+      labels:
+        app: inventory
+    spec:
+      containers:
+      - name: inventory
+        image: ghcr.io/mreider/fabrik-inventory:main
+        imagePullPolicy: Always
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: MSG_SLOWDOWN_RATE
+          value: "30"
+        - name: MSG_SLOWDOWN_DELAY
+          value: "3000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-receiver
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: shipping-receiver
+  template:
+    metadata:
+      labels:
+        app: shipping-receiver
+    spec:
+      containers:
+      - name: shipping-receiver
+        image: ghcr.io/mreider/fabrik-shipping-receiver:main
+        imagePullPolicy: Always
+        env:
+        - name: KAFKA_BOOTSTRAP_SERVERS
+          value: kafka:9092
+        - name: SHIPPING_PROCESSOR_HOST
+          value: shipping-processor
+        - name: MSG_SLOWDOWN_RATE
+          value: "30"
+        - name: MSG_SLOWDOWN_DELAY
+          value: "3000"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: shipping-processor
+  namespace: fabrik-oa
+spec:
+  selector:
+    matchLabels:
+      app: shipping-processor
+  template:
+    metadata:
+      labels:
+        app: shipping-processor
+    spec:
+      containers:
+      - name: shipping-processor
+        image: ghcr.io/mreider/fabrik-shipping-processor:main
+        imagePullPolicy: Always
+        env:
+        - name: DB_URL
+          value: jdbc:postgresql://postgres:5432/fabrik
+        - name: DB_USER
+          value: fabrik
+        - name: DB_PASSWORD
+          value: fabrik
+        - name: DB_SLOWDOWN_RATE
+          value: "30"
+        - name: DB_SLOWDOWN_DELAY
+          value: "3000"
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: shipping-processor
+  namespace: fabrik-oa
+spec:
+  selector:
+    app: shipping-processor
+  ports:
+  - port: 8080
+    name: http
