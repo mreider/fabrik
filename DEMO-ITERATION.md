@@ -170,6 +170,7 @@ Controlled via: `FAILURE_MODE=true` or `FAILURE_RATE=<percentage>`
 | Category | Issue | Severity | Notes |
 |----------|-------|----------|-------|
 | Services App - Failures | **Failures chart shows 0 when table shows 78 failures** | High | Chart visualization doesn't match table data. See [Failures Analysis link](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.services/failure-analysis?tf=2026-01-21T09%3A05%3A24.903Z%3B2026-01-21T11%3A25%3A34.694Z&filter=request.status_code+%3D+Failure+AND+dt.entity.service+%3D+SERVICE-DBDE40AA90378BA2&faTabId=exceptions) and screenshot `screen-shots/4-makes-nosense-why-no-failures.png` |
+| Services App - Charts | **Chart scaling makes data barely visible** | Medium | Both Response Time and Failures charts have poor auto-scaling. The response time chart data is compressed to near-invisible levels. Users can't easily see the patterns that the table data reveals. See `screen-shots/3.png` and `screen-shots/4-makes-nosense-why-no-failures.png` |
 
 ### Bug Details: Failures Chart Visualization
 
