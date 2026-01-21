@@ -410,11 +410,11 @@ spec:
         - name: OTEL_TRACES_EXPORTER
           value: otlp
         ports:
-        - containerPort: 8080
+        - containerPort: 8082
         readinessProbe:
           httpGet:
             path: /actuator/health
-            port: 8080
+            port: 8082
           initialDelaySeconds: 90
           periodSeconds: 10
           timeoutSeconds: 5
@@ -473,11 +473,11 @@ spec:
         - name: OTEL_TRACES_EXPORTER
           value: otlp
         ports:
-        - containerPort: 8080
+        - containerPort: 8083
         readinessProbe:
           httpGet:
             path: /actuator/health
-            port: 8080
+            port: 8083
           initialDelaySeconds: 90
           periodSeconds: 10
           timeoutSeconds: 5

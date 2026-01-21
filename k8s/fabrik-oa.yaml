@@ -316,13 +316,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /actuator/health
-            port: 8080
+            port: 8082
           initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 12
         ports:
-        - containerPort: 8080
+        - containerPort: 8082
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -354,13 +354,13 @@ spec:
         readinessProbe:
           httpGet:
             path: /actuator/health
-            port: 8080
+            port: 8083
           initialDelaySeconds: 120
           periodSeconds: 10
           timeoutSeconds: 5
           failureThreshold: 12
         ports:
-        - containerPort: 8080
+        - containerPort: 8083
 ---
 apiVersion: apps/v1
 kind: Deployment
