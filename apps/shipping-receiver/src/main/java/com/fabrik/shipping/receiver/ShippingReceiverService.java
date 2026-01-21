@@ -31,6 +31,11 @@ public class ShippingReceiverService {
 
     @KafkaListener(topics = "inventory-reserved", groupId = "shipping-group")
     public void receive(String message) {
+        // Parse message early for error reporting (format: orderId:itemId)
+        String[] parts = message.split(":");
+        String orderId = parts.length > 0 ? parts[0] : "unknown";
+        String itemId = parts.length > 1 ? parts[1] : "unknown";
+
         // Apply message processing slowdown (deserialization and validation)
         String msgSlowdownRateStr = System.getenv("MSG_SLOWDOWN_RATE");
         String msgSlowdownDelayStr = System.getenv("MSG_SLOWDOWN_DELAY");
@@ -141,11 +146,6 @@ public class ShippingReceiverService {
                 // Ignore if queue analysis simulation fails
             }
         }
-
-        // Message format: orderId:itemId
-        String[] parts = message.split(":");
-        String orderId = parts[0];
-        String itemId = parts[1];
 
         Span span = Span.current();
         span.setAttribute("messaging.operation.type", "receive");
