@@ -141,7 +141,7 @@ spec:
         - containerPort: 8080
         readinessProbe:
           httpGet:
-            path: /api/orders
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
@@ -190,7 +190,7 @@ spec:
         - containerPort: 8080
         readinessProbe:
           httpGet:
-            path: /
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
@@ -240,10 +240,12 @@ spec:
         - name: MSG_SLOWDOWN_DELAY
           value: "3000"
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 12
         ports:
         - containerPort: 8080
@@ -272,10 +274,12 @@ spec:
         ports:
         - containerPort: 8080
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 60
           periodSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 6
 ---
 apiVersion: apps/v1
@@ -310,10 +314,12 @@ spec:
         - name: MSG_SLOWDOWN_DELAY
           value: "3000"
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 12
         ports:
         - containerPort: 8080
@@ -346,10 +352,12 @@ spec:
         - name: MSG_SLOWDOWN_DELAY
           value: "3000"
         readinessProbe:
-          tcpSocket:
+          httpGet:
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
+          timeoutSeconds: 5
           failureThreshold: 12
         ports:
         - containerPort: 8080
@@ -387,7 +395,7 @@ spec:
         - containerPort: 8080
         readinessProbe:
           httpGet:
-            path: /api/shipments
+            path: /actuator/health
             port: 8080
           initialDelaySeconds: 120
           periodSeconds: 10
