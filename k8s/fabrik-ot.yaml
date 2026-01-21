@@ -24,6 +24,11 @@ spec:
           value: fabrik
         ports:
         - containerPort: 5432
+        readinessProbe:
+          exec:
+            command: ["pg_isready", "-U", "fabrik"]
+          initialDelaySeconds: 5
+          periodSeconds: 5
 ---
 apiVersion: v1
 kind: Service
@@ -81,6 +86,11 @@ spec:
         ports:
         - containerPort: 9092
         - containerPort: 9093
+        readinessProbe:
+          tcpSocket:
+            port: 9092
+          initialDelaySeconds: 30
+          periodSeconds: 10
 ---
 apiVersion: v1
 kind: Service
@@ -150,6 +160,14 @@ spec:
           value: otlp
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /api/orders
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
 ---
 apiVersion: v1
 kind: Service
@@ -216,6 +234,14 @@ spec:
           value: otlp
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
 ---
 apiVersion: v1
 kind: Service
@@ -284,6 +310,14 @@ spec:
           value: otlp
         - name: OTEL_TRACES_EXPORTER
           value: otlp
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 12
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -306,6 +340,14 @@ spec:
         env:
         - name: FRONTEND_URL
           value: http://frontend:8080
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 60
+          periodSeconds: 10
+          failureThreshold: 6
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -363,6 +405,14 @@ spec:
           value: otlp
         - name: OTEL_TRACES_EXPORTER
           value: otlp
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 12
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -416,6 +466,14 @@ spec:
           value: otlp
         - name: OTEL_TRACES_EXPORTER
           value: otlp
+        ports:
+        - containerPort: 8080
+        readinessProbe:
+          tcpSocket:
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          failureThreshold: 12
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -473,6 +531,14 @@ spec:
           value: otlp
         ports:
         - containerPort: 8080
+        readinessProbe:
+          httpGet:
+            path: /api/shipments
+            port: 8080
+          initialDelaySeconds: 90
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 12
 ---
 apiVersion: v1
 kind: Service
