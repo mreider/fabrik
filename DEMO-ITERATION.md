@@ -131,12 +131,35 @@ Controlled via: `FAILURE_MODE=true` or `FAILURE_RATE=<percentage>`
 
 ## Experiment Log
 
-### Experiment 1: [Date] - [Title]
-**Goal**:
-**Changes Made**:
-**Results in Dynatrace**:
+### Experiment 1: 2026-01-21 - Response Time Degradation Investigation
+
+**Goal**: Investigate a response time degradation problem detected by Davis AI on the FrontendController service.
+
+**Context**: After deploying the REST-based services (converted from gRPC), Davis detected a slowdown problem affecting the frontend service.
+
+**Flow**:
+1. Started at the **Problems screen** showing 10 problems including response time degradations and failure rate increases
+2. Clicked into problem **P-26011534** - "Response time degradation" for FrontendController
+3. Davis identified the root cause and showed "Analyze slowdown" option
+4. Clicked "Analyze slowdown" which navigated to the **Response Time** analysis screen
+5. Response Time screen showed hotspots:
+   - `placeOrder`: 905.27ms (+896.44ms increase from baseline)
+   - `getOrders`: 14.02ms (-995.00ms, actually improved)
+6. Wanted to investigate failures, so navigated to **Failures** tab
+7. **Found a bug**: The Failures chart showed 0 failures, but the table below showed 78 failed requests
+
 **Screenshots**:
-**Verdict**:
+- ![Problems list](screen-shots/1.png)
+- ![Problem detail with root cause](screen-shots/2.png)
+- ![Response Time analysis](screen-shots/3.png)
+- ![Failures tab - chart vs table mismatch](screen-shots/4-makes-nosense-why-no-failures.png)
+
+**Links**:
+- [Problem P-26011534](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.davis.problems/problem/-7984242418976461431_1768987320000V2)
+- [Response Time Analysis](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.services/response-time?tf=2026-01-21T09%3A05%3A24.903Z%3B2026-01-21T11%3A34%3A00.000Z&filter=dt.entity.service+%3D+SERVICE-DBDE40AA90378BA2&problemId=-7984242418976461431_1768987320000V2&compare=true)
+- [Failures Analysis (buggy)](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.services/failure-analysis?tf=2026-01-21T09%3A05%3A24.903Z%3B2026-01-21T11%3A25%3A34.694Z&filter=request.status_code+%3D+Failure+AND+dt.entity.service+%3D+SERVICE-DBDE40AA90378BA2&faTabId=exceptions)
+
+**Verdict**: The workflow from Problem → Analyze slowdown → Response Time works well. However, the Failures tab has a significant visualization bug (see Product Feedback below).
 
 ---
 
@@ -146,7 +169,25 @@ Controlled via: `FAILURE_MODE=true` or `FAILURE_RATE=<percentage>`
 
 | Category | Issue | Severity | Notes |
 |----------|-------|----------|-------|
-| | | | |
+| Services App - Failures | **Failures chart shows 0 when table shows 78 failures** | High | Chart visualization doesn't match table data. See [Failures Analysis link](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.services/failure-analysis?tf=2026-01-21T09%3A05%3A24.903Z%3B2026-01-21T11%3A25%3A34.694Z&filter=request.status_code+%3D+Failure+AND+dt.entity.service+%3D+SERVICE-DBDE40AA90378BA2&faTabId=exceptions) and screenshot `screen-shots/4-makes-nosense-why-no-failures.png` |
+
+### Bug Details: Failures Chart Visualization
+
+**Issue**: On the Failures tab in the Services app, the chart displays a flat line at 0 failures, but the table below clearly shows:
+- `placeOrder`: 77 failed requests (`jakarta.servlet.ServletException`)
+- `getOrders`: 1 failed request (`jakarta.servlet.ServletException`)
+- **Total: 78 failures**
+
+**Expected**: The chart should visualize the same 78 failures that appear in the table.
+
+**Observed**: Chart shows 0/min across the entire time range.
+
+**Screenshot**: ![Failures chart bug](screen-shots/4-makes-nosense-why-no-failures.png)
+
+**Possible causes**:
+1. Time aggregation mismatch between chart and table
+2. Chart rendering bug - data exists but isn't drawn
+3. Y-axis scaling issue (shows "150 min" which seems wrong for failure counts)
 
 ### Feature Requests
 
