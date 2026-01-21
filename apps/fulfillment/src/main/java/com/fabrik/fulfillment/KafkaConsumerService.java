@@ -23,7 +23,7 @@ public class KafkaConsumerService {
     }
 
     @KafkaListener(topics = "orders", groupId = "fulfillment-group")
-    public void consume(String orderId) {
+    public void consumeOrder(String orderId) {
         // Apply message processing slowdown (before business logic)
         String msgSlowdownRateStr = System.getenv("MSG_SLOWDOWN_RATE");
         String msgSlowdownDelayStr = System.getenv("MSG_SLOWDOWN_DELAY");
@@ -70,7 +70,23 @@ public class KafkaConsumerService {
         }
 
         if (shouldFail) {
-            throw new RuntimeException("org.springframework.dao.QueryTimeoutException: SQL [UPDATE orders ...]; Query timeout");
+            String[] criticalErrors = {
+                "CRITICAL: Fraud detection service unreachable - connection to 'fraud-detector' timed out. " +
+                    "Order " + orderId + " cannot be verified. Placing in manual review queue",
+                "FATAL: Fraud rules engine returned inconclusive result - order " + orderId + " matches conflicting patterns. " +
+                    "High velocity (12 orders/hour) but trusted device fingerprint. Human review required",
+                "ERROR: Order " + orderId + " flagged by velocity check - shipping address used in 3 orders within 10 minutes. " +
+                    "Potential fraud ring detected. All related orders suspended pending investigation",
+                "CRITICAL: Payment verification failed for order " + orderId + " - CVV mismatch reported by payment processor. " +
+                    "Card flagged for potential unauthorized use. Order blocked",
+                "FATAL: Customer account anomaly detected - order " + orderId + " placed from new device in different country " +
+                    "than billing address. Account temporarily locked pending 2FA verification",
+                "ERROR: Fraud model feature extraction failed - customer purchase history unavailable. " +
+                    "Order " + orderId + " scored with limited data. Confidence: LOW. Escalating to manual review"
+            };
+            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
+            logger.error("Fulfillment processing failed for order {}: {}", orderId, error);
+            throw new RuntimeException(error);
         }
 
         // Treat the framework-created span as the "receive" span
@@ -103,6 +119,43 @@ public class KafkaConsumerService {
             } else {
                 logger.error("Order not found: {}", orderId);
             }
+        } finally {
+            processSpan.end();
+        }
+    }
+
+    @KafkaListener(topics = "order-updates", groupId = "fulfillment-updates-group")
+    public void consumeOrderUpdate(String message) {
+        // Message format: orderId:status
+        String[] parts = message.split(":");
+        if (parts.length < 2) {
+            logger.warn("Invalid order update message format: {}", message);
+            return;
+        }
+
+        String orderId = parts[0];
+        String newStatus = parts[1];
+
+        Tracer tracer = GlobalOpenTelemetry.getTracer("com.fabrik.fulfillment");
+        Span processSpan = tracer.spanBuilder("process order update")
+                .setSpanKind(SpanKind.CONSUMER)
+                .setAttribute("messaging.operation.type", "process")
+                .setAttribute("messaging.system", "kafka")
+                .setAttribute("messaging.destination.name", "order-updates")
+                .startSpan();
+
+        try (Scope scope = processSpan.makeCurrent()) {
+            // Simulate processing delay
+            Thread.sleep(20 + (int)(Math.random() * 40));
+
+            orderRepository.findById(orderId).ifPresent(order -> {
+                String previousStatus = order.getStatus();
+                order.setStatus(newStatus);
+                orderRepository.save(order);
+                logger.info("Order {} status updated: {} -> {}", orderId, previousStatus, newStatus);
+            });
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         } finally {
             processSpan.end();
         }

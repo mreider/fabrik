@@ -81,7 +81,23 @@ public class InventoryService {
         }
 
         if (shouldFail) {
-            throw new RuntimeException("org.springframework.dao.QueryTimeoutException: SQL [SELECT * FROM inventory_items ...]; Query timeout");
+            String[] criticalErrors = {
+                "CRITICAL: Inventory sync conflict detected - warehouse 'EAST-1' reports different quantity than database. " +
+                    "DB: 47 units, WMS: 23 units for SKU. Halting reservation until reconciliation complete",
+                "FATAL: Stock reservation failed - item already reserved by concurrent transaction. " +
+                    "Optimistic locking exception. Order " + orderId + " cannot claim inventory. Customer may need to retry",
+                "ERROR: Warehouse management system 'wms-connector' returned error - item location unknown. " +
+                    "SKU exists in catalog but physical location not mapped. Fulfillment cannot proceed",
+                "CRITICAL: Inventory below safety stock threshold - cannot fulfill order " + orderId + ". " +
+                    "Available: 2 units, Requested: 5 units, Safety stock: 10 units. Reorder triggered but ETA unknown",
+                "FATAL: Batch lot validation failed - item from lot #LOT-2024-0892 recalled by manufacturer. " +
+                    "Order " + orderId + " contained recalled items. Customer notification required",
+                "ERROR: Multi-warehouse inventory allocation failed - no single warehouse can fulfill order " + orderId + ". " +
+                    "Split shipment not allowed for this product category. Order requires manual routing"
+            };
+            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
+            logger.error("Inventory processing failed for order {}: {}", orderId, error);
+            throw new RuntimeException(error);
         }
 
         // Check for DB slowdown (creates proper Database categorization via heavy computation)
