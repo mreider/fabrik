@@ -97,8 +97,8 @@ run_simulation() {
              kubectl set env deployment/shipping-receiver FAILURE_RATE=20 MSG_SLOWDOWN_RATE=45 MSG_SLOWDOWN_DELAY=1200 -n $ns >/dev/null 2>&1
              kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns >/dev/null 2>&1
 
-             # Frontend (HTTP 500s and slow responses)
-             kubectl set env deployment/frontend FAILURE_RATE=15 -n $ns >/dev/null 2>&1
+             # Frontend (slow responses only - failures propagate from downstream services)
+             # No FAILURE_RATE - frontend only fails when downstream services fail
 
              # Independent slowdown injection (affects successful requests)
              kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=2000 -n $ns >/dev/null 2>&1
@@ -144,7 +144,7 @@ run_simulation() {
              kubectl set env deployment/inventory FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
              kubectl set env deployment/shipping-receiver FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
              kubectl set env deployment/shipping-processor FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/frontend FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/frontend SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
         done
         echo "✅ Chaos environment variables cleaned up"
     fi

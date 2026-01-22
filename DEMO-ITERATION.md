@@ -163,6 +163,55 @@ Controlled via: `FAILURE_MODE=true` or `FAILURE_RATE=<percentage>`
 
 ---
 
+### Experiment 2: 2026-01-21 - Slowdown Problem Analysis Anomalies
+
+**Goal**: Investigate a response time degradation problem and understand anomalies in the analysis screens.
+
+**Context**: Davis detected a slowdown problem for FrontendController. Upon analysis, several confusing behaviors were observed.
+
+**Problem Details**:
+- Problem ID: P-26011643
+- Type: Response time degradation
+- Started: 21 Jan 2026, 18:01
+- Duration: 30 min 11 s
+- Affected Service: FrontendController
+
+**Screenshots**:
+- ![Problem overview - same service as root cause](screen-shots/2-0.png)
+- ![Response time comparison anomaly](screen-shots/2-1.png)
+
+**Links**:
+- [Problem P-26011643](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.davis.problems/problem/8789445416478124066_1769014560000V2)
+- [Response Time Analysis](https://abl46885.dev.apps.dynatracelabs.com/ui/apps/dynatrace.services/response-time?tf=2026-01-21T16%3A41%3A00.000Z%3B2026-01-21T17%3A23%3A59.963Z&filter=dt.entity.service+%3D+SERVICE-DBDE40AA90378BA2&problemId=8789445416478124066_1769014560000V2&compare=true)
+
+**Issues Observed**:
+
+#### Issue 1: "Slowdown" Shows FASTER Response Times During Problem
+
+The comparison view shows counterintuitive data:
+| Metric | Before (Comparison) | During Problem (Base) |
+|--------|---------------------|----------------------|
+| Response Time | 8.32s | 1.18s |
+| Outbound calls | 3.54s | 2.35s |
+| Service execution | 12.51s | 1.17s |
+
+**Problem**: A "slowdown" problem should show slower times during the problem period, not faster. This is confusing and undermines confidence in the analysis.
+
+**Possible explanation**: Failed requests return fast (HTTP 500 with no processing), which may be dragging the average down. But this isn't communicated clearly in the UI.
+
+#### Issue 2: Outbound Calls > Response Time (Impossible)
+
+The "Before" data shows:
+- Response Time: 8.32s
+- Service execution: 12.51s (longer than response time?)
+- Outbound calls: 3.54s
+
+**Problem**: How can internal metrics exceed the total response time? This suggests an aggregation or calculation bug.
+
+**Verdict**: Multiple UX issues make the slowdown analysis confusing. The comparison showing "faster during slowdown" needs investigation - either it's a bug or the UI needs to better explain what's happening (e.g., "failures returning fast" vs "successful requests slowing down").
+
+---
+
 ## Product Feedback & Issues
 
 ### Gaps Discovered

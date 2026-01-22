@@ -1,7 +1,6 @@
 package com.fabrik.frontend;
 
 import org.springframework.web.bind.annotation.*;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -31,9 +30,6 @@ public class FrontendController {
     @GetMapping("/")
     public ResponseEntity<List<OrderEntity>> getOrders() {
         simulateLatency(50, 150);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
         applyDbSlowdown();
         return ResponseEntity.ok(orderRepository.findAll());
     }
@@ -52,9 +48,6 @@ public class FrontendController {
     @GetMapping("/dashboard")
     public ResponseEntity<Map<String, Object>> getDashboard() {
         simulateLatency(200, 400);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
 
         Map<String, Object> dashboard = new HashMap<>();
         List<OrderEntity> orders = orderRepository.findAll();
@@ -74,9 +67,6 @@ public class FrontendController {
     @GetMapping("/orders/search")
     public ResponseEntity<List<OrderEntity>> searchOrders(@RequestParam(required = false) String status) {
         simulateLatency(80, 180);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
 
         List<OrderEntity> orders = orderRepository.findAll();
         if (status != null && !status.isEmpty()) {
@@ -96,15 +86,10 @@ public class FrontendController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST /order - Place new order (existing, with failure injection)
+    // POST /order - Place new order (calls downstream orders service)
     @PostMapping("/order")
     public ResponseEntity<String> placeOrder(@RequestParam String item, @RequestParam int quantity) {
         simulateLatency(30, 80);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body("Internal Server Error: Unable to process order");
-        }
-
         String result = orderClient.placeOrder(item, quantity);
         return ResponseEntity.ok(result);
     }
@@ -113,9 +98,6 @@ public class FrontendController {
     @PostMapping("/checkout")
     public ResponseEntity<Map<String, Object>> checkout(@RequestBody Map<String, Object> cart) {
         simulateLatency(300, 600);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
         applyDbSlowdown();
 
         Map<String, Object> result = new HashMap<>();
@@ -136,9 +118,6 @@ public class FrontendController {
     @GetMapping("/analytics")
     public ResponseEntity<Map<String, Object>> getAnalytics() {
         simulateLatency(500, 1000);
-        if (checkFailure()) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(null);
-        }
         applyDbSlowdown();
 
         Map<String, Object> analytics = new HashMap<>();
@@ -154,44 +133,6 @@ public class FrontendController {
             .collect(Collectors.groupingBy(OrderEntity::getItem, Collectors.counting())));
 
         return ResponseEntity.ok(analytics);
-    }
-
-    private boolean checkFailure() {
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
-
-        if (!shouldFail && failureRateStr != null) {
-            try {
-                int rate = Integer.parseInt(failureRateStr);
-                if (Math.random() * 100 < rate) {
-                    shouldFail = true;
-                }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
-            }
-        }
-
-        if (shouldFail) {
-            String[] criticalErrors = {
-                "CRITICAL: Upstream service 'orders-service' not responding - connection refused after 3 retry attempts. " +
-                    "Circuit breaker triggered. Customer checkout flow interrupted",
-                "ERROR: Request validation failed - malformed cart data detected. " +
-                    "Expected JSON array for 'items', received null. Request rejected to prevent data corruption",
-                "FATAL: Session token expired during checkout flow. User must re-authenticate. " +
-                    "Cart contents preserved but payment authorization voided",
-                "CRITICAL: Backend service dependency 'inventory-service' returned unexpected HTTP 503. " +
-                    "Cannot verify product availability. Checkout blocked to prevent overselling",
-                "ERROR: Request processing interrupted - downstream timeout from 'orders-service' after 30s. " +
-                    "Order may have been partially created. Customer should verify order status before retry",
-                "FATAL: Data serialization error - failed to parse order response from backend. " +
-                    "Unexpected field 'promotionCode' with null value. Frontend-backend contract violation detected"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Frontend request failed: {}", error);
-        }
-
-        return shouldFail;
     }
 
     private void applyDbSlowdown() {
