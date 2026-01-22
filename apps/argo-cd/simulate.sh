@@ -93,18 +93,21 @@ run_simulation() {
              kubectl set env deployment/shipping-processor DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
              kubectl set env deployment/frontend DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
 
-             # Orders service: 30% of requests get 5-second DB query (will timeout at 3s)
-             # This is the PRIMARY source of failures - Davis will root-cause to Database
-             kubectl set env deployment/orders DB_SLOWDOWN_RATE=30 DB_SLOWDOWN_DELAY=5000 -n $ns >/dev/null 2>&1
+             # Orders service:
+             # - SLOWDOWN: 40% get 3-second delay -> Davis root-causes to Orders SERVICE
+             # - DB_SLOWDOWN: 20% get 5-second DB query (times out at 3s) -> Davis root-causes to DATABASE
+             kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=3000 DB_SLOWDOWN_RATE=20 DB_SLOWDOWN_DELAY=5000 -n $ns >/dev/null 2>&1
 
-             # Fulfillment service: 25% of requests get 4-second DB query
+             # Fulfillment service: 25% get 4-second DB query (Kafka consumer, no REST endpoint)
              kubectl set env deployment/fulfillment DB_SLOWDOWN_RATE=25 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
 
-             # Inventory service: 20% of requests get 5-second DB query + message slowdowns
+             # Inventory service: 20% DB slowdown + message slowdowns (Kafka consumer)
              kubectl set env deployment/inventory DB_SLOWDOWN_RATE=20 DB_SLOWDOWN_DELAY=5000 MSG_SLOWDOWN_RATE=30 MSG_SLOWDOWN_DELAY=1000 -n $ns >/dev/null 2>&1
 
-             # Shipping processor: 20% of requests get 4-second DB query
-             kubectl set env deployment/shipping-processor DB_SLOWDOWN_RATE=20 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
+             # Shipping processor:
+             # - SLOWDOWN: 35% get 2.5-second delay -> Davis root-causes to Shipping SERVICE
+             # - DB_SLOWDOWN: 15% get 4-second DB query -> Davis root-causes to DATABASE
+             kubectl set env deployment/shipping-processor SLOWDOWN_RATE=35 SLOWDOWN_DELAY=2500 DB_SLOWDOWN_RATE=15 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
 
              # Shipping receiver: Message slowdowns only (no DB access)
              # Failures propagate from shipping-processor
@@ -118,16 +121,22 @@ run_simulation() {
 
     echo ""
     echo "Chaos simulation will run for 10 minutes..."
-    echo "Expected Davis AI detection:"
-    echo "  • Root cause: PostgreSQL database query timeouts"
-    echo "  • Affected services: orders → frontend (propagated failures)"
-    echo "  • Error type: QueryTimeoutException / JDBC timeout"
-    echo "  • Visual resolution path: Database → Service → HTTP endpoint"
+    echo "Expected Davis AI detection (TWO root cause patterns):"
+    echo ""
+    echo "  Pattern 1 - SERVICE as root cause (SLOWDOWN_RATE):"
+    echo "    • Root cause: Orders/Shipping-processor SERVICE"
+    echo "    • Evidence: Slow outbound calls from upstream services"
+    echo "    • Davis shows: 'Response time degradation' on the slow service"
+    echo ""
+    echo "  Pattern 2 - DATABASE as root cause (DB_SLOWDOWN_RATE):"
+    echo "    • Root cause: PostgreSQL database"
+    echo "    • Evidence: QueryTimeoutException in service spans"
+    echo "    • Davis shows: 'Database call to PostgreSQL timed out'"
     echo ""
     echo "Expected symptoms:"
+    echo "  • Service slowdowns causing upstream outbound call delays"
     echo "  • Database query timeout exceptions (traceable to PostgreSQL)"
     echo "  • HTTP 500 errors propagating from backend to frontend"
-    echo "  • Response time degradation on successful requests"
     echo "  • Message processing slowdowns in Kafka consumers"
 
     # Wait 10 minutes for chaos to show impact
@@ -144,10 +153,10 @@ run_simulation() {
         echo "🔧 Cleaning up chaos environment variables..."
         for ns in fabrik-oa fabrik-ot; do
              echo "  Cleaning chaos in namespace: $ns"
-             kubectl set env deployment/orders DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/orders SLOWDOWN_RATE- SLOWDOWN_DELAY- DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
              kubectl set env deployment/fulfillment DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
              kubectl set env deployment/inventory DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-processor DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor SLOWDOWN_RATE- SLOWDOWN_DELAY- DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
              kubectl set env deployment/shipping-receiver MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
              kubectl set env deployment/frontend DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
         done

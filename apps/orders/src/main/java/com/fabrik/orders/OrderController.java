@@ -87,14 +87,34 @@ public class OrderController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST /api/orders - Place new order (with DB-based chaos for proper root cause detection)
+    // POST /api/orders - Place new order (with chaos patterns for Davis root cause detection)
     @PostMapping
     public ResponseEntity<OrderResponse> placeOrder(@RequestBody OrderRequest request) {
         String orderId = UUID.randomUUID().toString();
 
-        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
-        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
-        // Davis will root-cause to: "Database call to PostgreSQL timed out"
+        // Pattern 1: Service Slowdown - causes SERVICE to be root cause
+        // Davis sees: "Orders service response time degradation" affecting upstream callers
+        // This makes the service slow, causing Frontend's outbound calls to be slow
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                int delayMs = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    logger.info("Service slowdown for order {} ({}ms)", orderId.substring(0, 8), delayMs);
+                    Thread.sleep(delayMs);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore invalid config
+            }
+        }
+
+        // Pattern 2: DB Slowdown - causes DATABASE to be root cause
+        // Heavy PostgreSQL query that can timeout when DB_SLOWDOWN_DELAY > DB_QUERY_TIMEOUT_MS
+        // Davis sees: "Database call to PostgreSQL timed out"
         String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
         String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
         if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
@@ -118,6 +138,7 @@ public class OrderController {
                 throw new RuntimeException("Database query timeout - order " + orderId.substring(0, 8) + " could not be processed", e);
             }
         }
+
         String item = request.item();
         int quantity = request.quantity();
 

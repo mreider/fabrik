@@ -125,14 +125,34 @@ public class ShippingController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST /api/shipments - Create new shipment (existing, with failure injection)
+    // POST /api/shipments - Create new shipment (with chaos patterns for Davis root cause detection)
     @PostMapping
     public ResponseEntity<ShipmentResponse> shipOrder(@RequestBody ShipmentRequest request) {
         simulateLatency(80, 160);
 
-        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
-        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
-        // Davis will root-cause to: "Database call to PostgreSQL timed out"
+        // Pattern 1: Service Slowdown - causes SERVICE to be root cause
+        // Davis sees: "Shipping processor response time degradation" affecting upstream callers
+        // This makes the service slow, causing shipping-receiver's outbound calls to be slow
+        String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
+        String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
+        if (slowdownRateStr != null && slowdownDelayStr != null) {
+            try {
+                int rate = Integer.parseInt(slowdownRateStr);
+                int delayMs = Integer.parseInt(slowdownDelayStr);
+                if (Math.random() * 100 < rate) {
+                    logger.info("Service slowdown for shipment {} ({}ms)", request.orderId(), delayMs);
+                    Thread.sleep(delayMs);
+                }
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            } catch (Exception e) {
+                // Ignore invalid config
+            }
+        }
+
+        // Pattern 2: DB Slowdown - causes DATABASE to be root cause
+        // Heavy PostgreSQL query that can timeout when DB_SLOWDOWN_DELAY > DB_QUERY_TIMEOUT_MS
+        // Davis sees: "Database call to PostgreSQL timed out"
         String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
         String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
         if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
