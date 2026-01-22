@@ -87,47 +87,14 @@ public class OrderController {
             .orElse(ResponseEntity.notFound().build());
     }
 
-    // POST /api/orders - Place new order (existing, with DB slowdown)
+    // POST /api/orders - Place new order (with DB-based chaos for proper root cause detection)
     @PostMapping
     public ResponseEntity<OrderResponse> placeOrder(@RequestBody OrderRequest request) {
-        // Check for failure injection
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
+        String orderId = UUID.randomUUID().toString();
 
-        if (!shouldFail && failureRateStr != null) {
-            try {
-                int rate = Integer.parseInt(failureRateStr);
-                if (Math.random() * 100 < rate) {
-                    shouldFail = true;
-                }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
-            }
-        }
-
-        if (shouldFail) {
-            String orderId = UUID.randomUUID().toString().substring(0, 8);
-            String[] criticalErrors = {
-                "CRITICAL: Database transaction failed - could not acquire lock on orders table within timeout period. " +
-                    "Transaction rolled back. Order " + orderId + " was not persisted. Retry recommended",
-                "FATAL: Foreign key constraint violation - referenced customer_id does not exist in customers table. " +
-                    "Order rejected. Data integrity check failed. Possible upstream sync issue with customer-service",
-                "ERROR: Payment gateway 'stripe-payments' declined transaction - card_declined (insufficient_funds). " +
-                    "Order " + orderId + " cannot be completed. Customer payment method requires update",
-                "CRITICAL: Inventory reservation failed for order " + orderId + " - requested quantity exceeds available stock. " +
-                    "Race condition detected. Concurrent checkout depleted inventory. Order rolled back",
-                "FATAL: Order validation failed - shipping address geocoding returned ZERO_RESULTS. " +
-                    "Address undeliverable: '123 Invalid St, Nowhere'. Order " + orderId + " rejected",
-                "ERROR: Kafka producer failed to send order event - broker not available. " +
-                    "Order " + orderId + " persisted but downstream services will not be notified. Manual reconciliation required"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Order placement failed: {}", error);
-            throw new RuntimeException(error);
-        }
-
-        // Check for DB slowdown (creates proper Database categorization via heavy computation)
+        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
+        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
+        // Davis will root-cause to: "Database call to PostgreSQL timed out"
         String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
         String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
         if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
@@ -135,19 +102,22 @@ public class OrderController {
                 int rate = Integer.parseInt(dbSlowdownRateStr);
                 int delayMs = Integer.parseInt(dbSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
+                    // Each iteration takes ~0.2ms, so multiply delay by 5000 to get approximate ms
                     int iterations = delayMs * 5000;
-                    logger.debug("Running DB computation with {} iterations", iterations);
+                    logger.info("Executing heavy DB query for order {} ({} iterations, ~{}ms expected)",
+                        orderId.substring(0, 8), iterations, delayMs);
                     entityManager.createNativeQuery(
                         "SELECT count(*) FROM generate_series(1, " + iterations + ") s, " +
                         "LATERAL (SELECT md5(CAST(random() AS text))) x"
                     ).getSingleResult();
+                    logger.debug("DB query completed for order {}", orderId.substring(0, 8));
                 }
             } catch (Exception e) {
-                logger.warn("DB slowdown failed: {}", e.getMessage());
+                // This exception (QueryTimeoutException or similar) is traceable by Davis
+                logger.error("Database operation failed for order {}: {}", orderId.substring(0, 8), e.getMessage());
+                throw new RuntimeException("Database query timeout - order " + orderId.substring(0, 8) + " could not be processed", e);
             }
         }
-
-        String orderId = UUID.randomUUID().toString();
         String item = request.item();
         int quantity = request.quantity();
 

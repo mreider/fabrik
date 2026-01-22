@@ -8,11 +8,11 @@ send_sdlc_event() {
     local status=$1
     local version=$2
     local name="Deploy Services ${version}"
-    
+
     # Current time in nanoseconds and unique execution ID
     local timestamp=$(date +%s)000000000
     local execution_id="${timestamp}_$(shuf -i 10000-99999 -n 1)"
-    
+
     echo "Sending deployment ${status} event for ${version}..."
 
     payload=$(cat <<EOF
@@ -47,14 +47,19 @@ EOF
          -H "Authorization: Api-Token ${DT_API_TOKEN}" \
          -H "Content-Type: application/json; charset=utf-8" \
          -d "$payload"
-         
+
     echo ""
 }
 
 run_simulation() {
     echo "Starting Fabrik Chaos Engineering Simulation..."
-    echo "This simulates correlated failures across the microservices architecture"
-    echo "to demonstrate Dynatrace Davis AI anomaly detection and root cause analysis."
+    echo "This simulates DB-originated failures for proper Davis AI root cause detection."
+    echo ""
+    echo "Mechanism: Heavy PostgreSQL queries that exceed JDBC timeout"
+    echo "  - DB_SLOWDOWN_RATE: Percentage of requests that get slow query"
+    echo "  - DB_SLOWDOWN_DELAY: Target query duration (ms) - must exceed timeout to cause failure"
+    echo "  - DB_QUERY_TIMEOUT_MS: JDBC timeout (ms) - queries exceeding this will fail"
+    echo ""
 
     # Generate unique version with realistic commit hash
     local bad_hash=$(openssl rand -hex 6)
@@ -65,65 +70,65 @@ run_simulation() {
     # 1. Send Deployment Started
     send_sdlc_event "started" "$bad_version"
 
-    # 2. Correlated Failure Episode (10 minutes)
-    # Simulates a problematic deployment with cascading failures:
-    # - Database query timeouts (orders, fulfillment, inventory, shipping)
-    # - HTTP 500 errors (frontend)
-    # - Message processing failures (kafka consumers)
-    # - gRPC communication failures (shipping processor)
-    echo "Starting correlated failure simulation (10 minutes)..."
-    echo "Injecting failures: DB timeouts, HTTP 500s, messaging failures, gRPC errors"
+    echo "Starting DB-based chaos simulation (10 minutes)..."
+    echo "Injecting: Database query timeouts that Davis will root-cause to PostgreSQL"
 
     echo "🔥 CHAOS MODE ON - Simulating problematic deployment $bad_version"
 
     # Check if chaos mode is already active
-    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
+    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='DB_SLOWDOWN_RATE')].value}" 2>/dev/null || echo "")
 
     if [[ -n "$chaos_active" ]]; then
-        echo "ℹ️  Chaos mode already active (FAILURE_RATE=$chaos_active), skipping environment setup"
+        echo "ℹ️  Chaos mode already active (DB_SLOWDOWN_RATE=$chaos_active), skipping environment setup"
     else
-        echo "🔧 Setting up chaos environment variables..."
-        for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
-             echo "  Configuring chaos in namespace: $ns"
+        echo "🔧 Setting up DB chaos environment variables..."
+        for ns in fabrik-oa fabrik-ot; do
+             echo "  Configuring DB chaos in namespace: $ns"
 
-             # Core services with high failure rates (simulate DB connection pool exhaustion)
-             kubectl set env deployment/orders FAILURE_RATE=30 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/fulfillment FAILURE_RATE=30 -n $ns >/dev/null 2>&1
+             # Set query timeout to 3 seconds - queries taking longer will fail
+             # This is set via application.properties default, but can be overridden
+             kubectl set env deployment/orders DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/fulfillment DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/inventory DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
+             kubectl set env deployment/frontend DB_QUERY_TIMEOUT_MS=3000 -n $ns >/dev/null 2>&1
 
-             # Inventory service (inventory lookup timeouts + message processing slowdowns)
-             kubectl set env deployment/inventory FAILURE_RATE=25 MSG_SLOWDOWN_RATE=50 MSG_SLOWDOWN_DELAY=1500 -n $ns >/dev/null 2>&1
+             # Orders service: 30% of requests get 5-second DB query (will timeout at 3s)
+             # This is the PRIMARY source of failures - Davis will root-cause to Database
+             kubectl set env deployment/orders DB_SLOWDOWN_RATE=30 DB_SLOWDOWN_DELAY=5000 -n $ns >/dev/null 2>&1
 
-             # Shipping services (messaging and gRPC failures + message processing slowdowns)
-             kubectl set env deployment/shipping-receiver FAILURE_RATE=20 MSG_SLOWDOWN_RATE=45 MSG_SLOWDOWN_DELAY=1200 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-processor FAILURE_RATE=20 -n $ns >/dev/null 2>&1
+             # Fulfillment service: 25% of requests get 4-second DB query
+             kubectl set env deployment/fulfillment DB_SLOWDOWN_RATE=25 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
 
-             # Frontend (slow responses only - failures propagate from downstream services)
-             # No FAILURE_RATE - frontend only fails when downstream services fail
+             # Inventory service: 20% of requests get 5-second DB query + message slowdowns
+             kubectl set env deployment/inventory DB_SLOWDOWN_RATE=20 DB_SLOWDOWN_DELAY=5000 MSG_SLOWDOWN_RATE=30 MSG_SLOWDOWN_DELAY=1000 -n $ns >/dev/null 2>&1
 
-             # Independent slowdown injection (affects successful requests)
-             kubectl set env deployment/orders SLOWDOWN_RATE=40 SLOWDOWN_DELAY=2000 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/fulfillment SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1500 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/inventory SLOWDOWN_RATE=30 SLOWDOWN_DELAY=3000 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-receiver SLOWDOWN_RATE=25 SLOWDOWN_DELAY=1000 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-processor SLOWDOWN_RATE=20 SLOWDOWN_DELAY=2500 -n $ns >/dev/null 2>&1
-             kubectl set env deployment/frontend SLOWDOWN_RATE=35 SLOWDOWN_DELAY=1800 -n $ns >/dev/null 2>&1
+             # Shipping processor: 20% of requests get 4-second DB query
+             kubectl set env deployment/shipping-processor DB_SLOWDOWN_RATE=20 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
+
+             # Shipping receiver: Message slowdowns only (no DB access)
+             # Failures propagate from shipping-processor
+             kubectl set env deployment/shipping-receiver MSG_SLOWDOWN_RATE=25 MSG_SLOWDOWN_DELAY=800 -n $ns >/dev/null 2>&1
+
+             # Frontend: Light DB slowdown (shows impact, but root cause is downstream)
+             kubectl set env deployment/frontend DB_SLOWDOWN_RATE=10 DB_SLOWDOWN_DELAY=4000 -n $ns >/dev/null 2>&1
         done
-        echo "✅ Chaos environment variables configured"
+        echo "✅ DB chaos environment variables configured"
     fi
 
+    echo ""
     echo "Chaos simulation will run for 10 minutes..."
+    echo "Expected Davis AI detection:"
+    echo "  • Root cause: PostgreSQL database query timeouts"
+    echo "  • Affected services: orders → frontend (propagated failures)"
+    echo "  • Error type: QueryTimeoutException / JDBC timeout"
+    echo "  • Visual resolution path: Database → Service → HTTP endpoint"
+    echo ""
     echo "Expected symptoms:"
-    echo "  • Increased response times across all services (independent slowdowns)"
-    echo "  • Database query timeout exceptions (failure injection)"
-    echo "  • HTTP 500 error rate spikes (failure injection)"
-    echo "  • Message processing failures (failure injection)"
-    echo "  • Message deserialization and validation slowdowns (msg processing injection)"
-    echo "  • Consumer group rebalancing delays (msg processing injection)"
-    echo "  • Dead letter queue processing overhead (msg processing injection)"
-    echo "  • gRPC communication errors (failure injection)"
-    echo "  • End-to-end transaction failures (combined effect)"
-    echo "  • Response time degradation on successful requests (slowdown injection)"
-    echo "  • Mixed performance patterns: slow successes + fast failures + slow message processing"
+    echo "  • Database query timeout exceptions (traceable to PostgreSQL)"
+    echo "  • HTTP 500 errors propagating from backend to frontend"
+    echo "  • Response time degradation on successful requests"
+    echo "  • Message processing slowdowns in Kafka consumers"
 
     # Wait 10 minutes for chaos to show impact
     sleep 600
@@ -131,20 +136,20 @@ run_simulation() {
     echo "✅ CHAOS MODE OFF - Rolling back to stable version $good_version"
 
     # Check if cleanup is needed
-    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='FAILURE_RATE')].value}" 2>/dev/null || echo "")
+    chaos_active=$(kubectl get deployment orders -n fabrik-oa -o jsonpath="{.spec.template.spec.containers[0].env[?(@.name=='DB_SLOWDOWN_RATE')].value}" 2>/dev/null || echo "")
 
     if [[ -z "$chaos_active" ]]; then
         echo "ℹ️  Chaos mode already disabled, skipping cleanup"
     else
         echo "🔧 Cleaning up chaos environment variables..."
-        for ns in fabrik-oa fabrik-ot fabrik-oa-2; do
+        for ns in fabrik-oa fabrik-ot; do
              echo "  Cleaning chaos in namespace: $ns"
-             kubectl set env deployment/orders FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/fulfillment FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/inventory FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-receiver FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/shipping-processor FAILURE_RATE- SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
-             kubectl set env deployment/frontend SLOWDOWN_RATE- SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/orders DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/fulfillment DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/inventory DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-processor DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/shipping-receiver MSG_SLOWDOWN_RATE- MSG_SLOWDOWN_DELAY- -n $ns >/dev/null 2>&1
+             kubectl set env deployment/frontend DB_SLOWDOWN_RATE- DB_SLOWDOWN_DELAY- DB_QUERY_TIMEOUT_MS- -n $ns >/dev/null 2>&1
         done
         echo "✅ Chaos environment variables cleaned up"
     fi
@@ -153,7 +158,7 @@ run_simulation() {
     send_sdlc_event "finished" "$good_version"
 
     echo "Rollback complete - System should return to baseline performance."
-    echo "Davis AI should detect the anomaly period and correlate it with the deployment event."
+    echo "Davis AI should detect: Database as root cause → Service failures → HTTP errors"
     echo "Bad deployment: $bad_version → Good deployment: $good_version"
 }
 

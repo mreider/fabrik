@@ -8,6 +8,8 @@ import io.opentelemetry.api.trace.Span;
 import io.opentelemetry.api.trace.SpanKind;
 import io.opentelemetry.api.trace.Tracer;
 import io.opentelemetry.context.Scope;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -17,6 +19,9 @@ public class KafkaConsumerService {
 
     private static final Logger logger = LoggerFactory.getLogger(KafkaConsumerService.class);
     private final OrderRepository orderRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     public KafkaConsumerService(OrderRepository orderRepository) {
         this.orderRepository = orderRepository;
@@ -54,39 +59,30 @@ public class KafkaConsumerService {
             }
         }
 
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
-        
-        if (!shouldFail && failureRateStr != null) {
+        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
+        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
+        // Davis will root-cause to: "Database call to PostgreSQL timed out"
+        String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
+        String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
+        if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
             try {
-                int rate = Integer.parseInt(failureRateStr);
+                int rate = Integer.parseInt(dbSlowdownRateStr);
+                int delayMs = Integer.parseInt(dbSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
-                    shouldFail = true;
+                    int iterations = delayMs * 5000;
+                    logger.info("Executing heavy DB query for order {} ({} iterations, ~{}ms expected)",
+                        orderId, iterations, delayMs);
+                    entityManager.createNativeQuery(
+                        "SELECT count(*) FROM generate_series(1, " + iterations + ") s, " +
+                        "LATERAL (SELECT md5(CAST(random() AS text))) x"
+                    ).getSingleResult();
+                    logger.debug("DB query completed for order {}", orderId);
                 }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
+            } catch (Exception e) {
+                // This exception (QueryTimeoutException or similar) is traceable by Davis
+                logger.error("Database operation failed for order {}: {}", orderId, e.getMessage());
+                throw new RuntimeException("Database query timeout - fraud check for order " + orderId + " could not be completed", e);
             }
-        }
-
-        if (shouldFail) {
-            String[] criticalErrors = {
-                "CRITICAL: Fraud detection service unreachable - connection to 'fraud-detector' timed out. " +
-                    "Order " + orderId + " cannot be verified. Placing in manual review queue",
-                "FATAL: Fraud rules engine returned inconclusive result - order " + orderId + " matches conflicting patterns. " +
-                    "High velocity (12 orders/hour) but trusted device fingerprint. Human review required",
-                "ERROR: Order " + orderId + " flagged by velocity check - shipping address used in 3 orders within 10 minutes. " +
-                    "Potential fraud ring detected. All related orders suspended pending investigation",
-                "CRITICAL: Payment verification failed for order " + orderId + " - CVV mismatch reported by payment processor. " +
-                    "Card flagged for potential unauthorized use. Order blocked",
-                "FATAL: Customer account anomaly detected - order " + orderId + " placed from new device in different country " +
-                    "than billing address. Account temporarily locked pending 2FA verification",
-                "ERROR: Fraud model feature extraction failed - customer purchase history unavailable. " +
-                    "Order " + orderId + " scored with limited data. Confidence: LOW. Escalating to manual review"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Fulfillment processing failed for order {}: {}", orderId, error);
-            throw new RuntimeException(error);
         }
 
         // Treat the framework-created span as the "receive" span

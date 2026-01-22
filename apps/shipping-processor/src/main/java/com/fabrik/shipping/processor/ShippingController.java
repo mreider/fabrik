@@ -130,43 +130,9 @@ public class ShippingController {
     public ResponseEntity<ShipmentResponse> shipOrder(@RequestBody ShipmentRequest request) {
         simulateLatency(80, 160);
 
-        // Check for failure injection
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
-
-        if (!shouldFail && failureRateStr != null) {
-            try {
-                int rate = Integer.parseInt(failureRateStr);
-                if (Math.random() * 100 < rate) {
-                    shouldFail = true;
-                }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
-            }
-        }
-
-        if (shouldFail) {
-            String[] criticalErrors = {
-                "CRITICAL: Carrier integration failed - 'FedEx Ship API' returned HTTP 500. " +
-                    "Error: 'Internal server error during rate calculation'. Order " + request.orderId() + " shipment cannot proceed",
-                "FATAL: Duplicate shipment detected - order " + request.orderId() + " already has tracking number assigned. " +
-                    "Idempotency violation. Possible message replay from Kafka. Shipment creation blocked",
-                "ERROR: Package weight validation failed - declared weight 2.5kg does not match calculated weight 8.7kg. " +
-                    "Carrier surcharge would apply. Order " + request.orderId() + " held for weight verification",
-                "CRITICAL: Shipping zone lookup failed - destination postal code not found in carrier zone matrix. " +
-                    "Cannot calculate shipping cost for order " + request.orderId() + ". Address may be in non-serviceable area",
-                "FATAL: Carrier account suspended - 'UPS WorldShip' credentials rejected. " +
-                    "Error: 'Account past due - shipments disabled'. All pending orders affected. Finance team notified",
-                "ERROR: Label print service 'zebra-print-server' offline - cannot generate shipping label for order " + request.orderId() + ". " +
-                    "Warehouse packing station blocked. Manual label required"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Shipment creation failed for order {}: {}", request.orderId(), error);
-            throw new RuntimeException(error);
-        }
-
-        // Check for DB slowdown (creates proper Database categorization via heavy computation)
+        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
+        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
+        // Davis will root-cause to: "Database call to PostgreSQL timed out"
         String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
         String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
         if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
@@ -174,14 +140,19 @@ public class ShippingController {
                 int rate = Integer.parseInt(dbSlowdownRateStr);
                 int delayMs = Integer.parseInt(dbSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
-                    // Heavy DB computation - actual DB CPU work that OneAgent categorizes as Database
                     int iterations = delayMs * 5000;
-                    String sql = "SELECT count(*) FROM generate_series(1, " + iterations + ") s, LATERAL (SELECT md5(CAST(random() AS text))) x";
-                    logger.info("Executing SQL: {}", sql);
-                    entityManager.createNativeQuery(sql).getSingleResult();
+                    logger.info("Executing heavy DB query for order {} ({} iterations, ~{}ms expected)",
+                        request.orderId(), iterations, delayMs);
+                    entityManager.createNativeQuery(
+                        "SELECT count(*) FROM generate_series(1, " + iterations + ") s, " +
+                        "LATERAL (SELECT md5(CAST(random() AS text))) x"
+                    ).getSingleResult();
+                    logger.debug("DB query completed for order {}", request.orderId());
                 }
             } catch (Exception e) {
-                logger.warn("DB slowdown failed: {}", e.getMessage());
+                // This exception (QueryTimeoutException or similar) is traceable by Davis
+                logger.error("Database operation failed for order {}: {}", request.orderId(), e.getMessage());
+                throw new RuntimeException("Database query timeout - shipment for order " + request.orderId() + " could not be created", e);
             }
         }
 

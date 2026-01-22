@@ -64,43 +64,9 @@ public class InventoryService {
             }
         }
 
-        // Check for failure injection
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
-
-        if (!shouldFail && failureRateStr != null) {
-            try {
-                int rate = Integer.parseInt(failureRateStr);
-                if (Math.random() * 100 < rate) {
-                    shouldFail = true;
-                }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
-            }
-        }
-
-        if (shouldFail) {
-            String[] criticalErrors = {
-                "CRITICAL: Inventory sync conflict detected - warehouse 'EAST-1' reports different quantity than database. " +
-                    "DB: 47 units, WMS: 23 units for SKU. Halting reservation until reconciliation complete",
-                "FATAL: Stock reservation failed - item already reserved by concurrent transaction. " +
-                    "Optimistic locking exception. Order " + orderId + " cannot claim inventory. Customer may need to retry",
-                "ERROR: Warehouse management system 'wms-connector' returned error - item location unknown. " +
-                    "SKU exists in catalog but physical location not mapped. Fulfillment cannot proceed",
-                "CRITICAL: Inventory below safety stock threshold - cannot fulfill order " + orderId + ". " +
-                    "Available: 2 units, Requested: 5 units, Safety stock: 10 units. Reorder triggered but ETA unknown",
-                "FATAL: Batch lot validation failed - item from lot #LOT-2024-0892 recalled by manufacturer. " +
-                    "Order " + orderId + " contained recalled items. Customer notification required",
-                "ERROR: Multi-warehouse inventory allocation failed - no single warehouse can fulfill order " + orderId + ". " +
-                    "Split shipment not allowed for this product category. Order requires manual routing"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Inventory processing failed for order {}: {}", orderId, error);
-            throw new RuntimeException(error);
-        }
-
-        // Check for DB slowdown (creates proper Database categorization via heavy computation)
+        // DB Slowdown Chaos: Heavy PostgreSQL query that can timeout
+        // When DB_SLOWDOWN_DELAY exceeds DB_QUERY_TIMEOUT_MS, this causes QueryTimeoutException
+        // Davis will root-cause to: "Database call to PostgreSQL timed out"
         String dbSlowdownRateStr = System.getenv("DB_SLOWDOWN_RATE");
         String dbSlowdownDelayStr = System.getenv("DB_SLOWDOWN_DELAY");
         if (dbSlowdownRateStr != null && dbSlowdownDelayStr != null && entityManager != null) {
@@ -109,14 +75,18 @@ public class InventoryService {
                 int delayMs = Integer.parseInt(dbSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
                     int iterations = delayMs * 5000;
-                    logger.debug("Running DB computation with {} iterations", iterations);
+                    logger.info("Executing heavy DB query for order {} ({} iterations, ~{}ms expected)",
+                        orderId, iterations, delayMs);
                     entityManager.createNativeQuery(
                         "SELECT count(*) FROM generate_series(1, " + iterations + ") s, " +
                         "LATERAL (SELECT md5(CAST(random() AS text))) x"
                     ).getSingleResult();
+                    logger.debug("DB query completed for order {}", orderId);
                 }
             } catch (Exception e) {
-                logger.warn("DB slowdown failed: {}", e.getMessage());
+                // This exception (QueryTimeoutException or similar) is traceable by Davis
+                logger.error("Database operation failed for order {}: {}", orderId, e.getMessage());
+                throw new RuntimeException("Database query timeout - inventory check for order " + orderId + " could not be completed", e);
             }
         }
 

@@ -66,58 +66,10 @@ public class ShippingReceiverService {
             }
         }
 
-        // Check for failure injection
-        String failureMode = System.getenv("FAILURE_MODE");
-        String failureRateStr = System.getenv("FAILURE_RATE");
-        boolean shouldFail = "true".equals(failureMode);
+        // Note: shipping-receiver doesn't have database access
+        // Failures will propagate from shipping-processor (which has DB-based chaos)
 
-        if (!shouldFail && failureRateStr != null) {
-            try {
-                int rate = Integer.parseInt(failureRateStr);
-                if (Math.random() * 100 < rate) {
-                    shouldFail = true;
-                }
-            } catch (NumberFormatException e) {
-                // Ignore invalid rate
-            }
-        }
-
-        if (shouldFail) {
-            // Wrap in messaging span so Dynatrace categorizes it as "Message processing"
-            Tracer tracer = GlobalOpenTelemetry.getTracer("com.fabrik.shipping.receiver");
-            Span failSpan = tracer.spanBuilder("message validation")
-                    .setSpanKind(SpanKind.CONSUMER)
-                    .setAttribute("messaging.system", "kafka")
-                    .setAttribute("messaging.operation.type", "process")
-                    .setAttribute("messaging.destination.name", "inventory-reserved")
-                    .startSpan();
-            try (Scope scope = failSpan.makeCurrent()) {
-                Thread.sleep(3000);
-            } catch (InterruptedException e) {
-                Thread.currentThread().interrupt();
-            } finally {
-                failSpan.end();
-            }
-            String[] criticalErrors = {
-                "CRITICAL: Shipping processor service unavailable - connection refused to 'shipping-processor:8080'. " +
-                    "Circuit breaker open. Order " + orderId + " shipment delayed. Customer notification pending",
-                "FATAL: Invalid shipping message format - expected 'orderId:itemId' but received malformed data. " +
-                    "Message: '" + message + "'. Dead-letter queue write failed. Manual intervention required",
-                "ERROR: Carrier API 'fedex-connector' rate limit exceeded - too many label generation requests. " +
-                    "Order " + orderId + " shipment queued. Retry scheduled for next rate window",
-                "CRITICAL: Address validation service returned UNDELIVERABLE for order " + orderId + ". " +
-                    "Reason: 'PO Box not accepted for oversized items'. Shipment blocked pending address update",
-                "FATAL: Shipping label generation failed - carrier 'UPS' rejected request. " +
-                    "Error: 'Package dimensions exceed maximum for selected service'. Order " + orderId + " requires service upgrade",
-                "ERROR: Hazmat verification required - order " + orderId + " contains restricted item. " +
-                    "Cannot auto-generate shipping label. Compliance review required before shipment"
-            };
-            String error = criticalErrors[(int)(Math.random() * criticalErrors.length)];
-            logger.error("Shipping receiver failed for order {}: {}", orderId, error);
-            throw new RuntimeException(error);
-        }
-
-        // Apply slowdown via message queue performance analysis (independent of failures)
+        // Apply slowdown via message queue performance analysis
         String slowdownRateStr = System.getenv("SLOWDOWN_RATE");
         String slowdownDelayStr = System.getenv("SLOWDOWN_DELAY");
         if (slowdownRateStr != null && slowdownDelayStr != null) {

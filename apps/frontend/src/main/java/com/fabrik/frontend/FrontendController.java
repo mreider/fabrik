@@ -144,14 +144,16 @@ public class FrontendController {
                 int delayMs = Integer.parseInt(dbSlowdownDelayStr);
                 if (Math.random() * 100 < rate) {
                     int iterations = delayMs * 5000;
-                    logger.debug("Running DB computation with {} iterations", iterations);
+                    logger.info("Executing heavy DB query ({} iterations, ~{}ms expected)", iterations, delayMs);
                     entityManager.createNativeQuery(
                         "SELECT count(*) FROM generate_series(1, " + iterations + ") s, " +
                         "LATERAL (SELECT md5(CAST(random() AS text))) x"
                     ).getSingleResult();
                 }
             } catch (Exception e) {
-                logger.warn("DB slowdown failed: {}", e.getMessage());
+                // This exception (QueryTimeoutException or similar) is traceable by Davis
+                logger.error("Database operation failed: {}", e.getMessage());
+                throw new RuntimeException("Database query timeout - request could not be processed", e);
             }
         }
     }
