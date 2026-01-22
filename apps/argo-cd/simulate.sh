@@ -70,7 +70,7 @@ run_simulation() {
     # 1. Send Deployment Started
     send_sdlc_event "started" "$bad_version"
 
-    echo "Starting DB-based chaos simulation (10 minutes)..."
+    echo "Starting DB-based chaos simulation (30 minutes)..."
     echo "Injecting: Database query timeouts that Davis will root-cause to PostgreSQL"
 
     echo "🔥 CHAOS MODE ON - Simulating problematic deployment $bad_version"
@@ -120,7 +120,7 @@ run_simulation() {
     fi
 
     echo ""
-    echo "Chaos simulation will run for 10 minutes..."
+    echo "Chaos simulation will run for 30 minutes..."
     echo "Expected Davis AI detection (TWO root cause patterns):"
     echo ""
     echo "  Pattern 1 - SERVICE as root cause (SLOWDOWN_RATE):"
@@ -139,8 +139,8 @@ run_simulation() {
     echo "  • HTTP 500 errors propagating from backend to frontend"
     echo "  • Message processing slowdowns in Kafka consumers"
 
-    # Wait 10 minutes for chaos to show impact
-    sleep 600
+    # Wait 30 minutes for chaos to show impact
+    sleep 1800
 
     echo "✅ CHAOS MODE OFF - Rolling back to stable version $good_version"
 
