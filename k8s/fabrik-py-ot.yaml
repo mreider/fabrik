@@ -127,8 +127,6 @@ spec:
       - name: orders
         image: ghcr.io/mreider/fabrik-orders-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8080 --workers 2 --threads 4 app:app"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -138,6 +136,11 @@ spec:
           value: fabrik
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: kafka:9092
+        # Chaos: DB slowdown for Davis root cause detection
+        - name: DB_SLOWDOWN_RATE
+          value: "30"
+        - name: DB_SLOWDOWN_DELAY
+          value: "5000"
         - name: OTEL_SERVICE_NAME
           value: orders-py
         - name: OTEL_EXPORTER_OTLP_HEADERS
@@ -200,8 +203,6 @@ spec:
       - name: frontend
         image: ghcr.io/mreider/fabrik-frontend-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8080 --workers 2 --threads 4 app:app"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -273,8 +274,6 @@ spec:
       - name: fulfillment
         image: ghcr.io/mreider/fabrik-fulfillment-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8080 --workers 2 --threads 4 app:app"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -284,7 +283,7 @@ spec:
           value: fabrik
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: kafka:9092
-        # Chaos for Davis root cause detection
+        # Chaos: Message slowdown for Davis root cause detection
         - name: MSG_SLOWDOWN_RATE
           value: "50"
         - name: MSG_SLOWDOWN_DELAY
@@ -351,8 +350,6 @@ spec:
       - name: inventory
         image: ghcr.io/mreider/fabrik-inventory-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8082 --workers 2 --threads 4 app:app"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -362,6 +359,11 @@ spec:
           value: fabrik
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: kafka:9092
+        # Chaos: Message slowdown
+        - name: MSG_SLOWDOWN_RATE
+          value: "30"
+        - name: MSG_SLOWDOWN_DELAY
+          value: "4000"
         - name: OTEL_SERVICE_NAME
           value: inventory-py
         - name: OTEL_EXPORTER_OTLP_HEADERS
@@ -424,14 +426,12 @@ spec:
       - name: shipping-receiver
         image: ghcr.io/mreider/fabrik-shipping-receiver-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8083 --workers 2 --threads 4 app:app"]
         env:
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: kafka:9092
         - name: SHIPPING_PROCESSOR_URL
           value: http://shipping-processor:8080
-        # Chaos for Davis root cause detection
+        # Chaos: Message slowdown
         - name: MSG_SLOWDOWN_RATE
           value: "50"
         - name: MSG_SLOWDOWN_DELAY
@@ -498,8 +498,6 @@ spec:
       - name: shipping-processor
         image: ghcr.io/mreider/fabrik-shipping-processor-py-ot:main
         imagePullPolicy: Always
-        command: ["/bin/sh", "-c"]
-        args: ["export OTEL_RESOURCE_ATTRIBUTES=$(cat /var/lib/dynatrace/enrichment/dt_metadata.properties 2>/dev/null | tr '\\n' ',' | sed 's/,$//') && opentelemetry-instrument gunicorn --bind 0.0.0.0:8080 --workers 2 --threads 4 app:app"]
         env:
         - name: DB_URL
           value: jdbc:postgresql://postgres:5432/fabrik
@@ -509,7 +507,7 @@ spec:
           value: fabrik
         - name: KAFKA_BOOTSTRAP_SERVERS
           value: kafka:9092
-        # Chaos for Davis root cause detection
+        # Chaos: DB slowdown for Davis root cause detection
         - name: DB_SLOWDOWN_RATE
           value: "50"
         - name: DB_SLOWDOWN_DELAY

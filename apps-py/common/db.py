@@ -47,7 +47,10 @@ def get_db_connection():
 
 
 def init_db_tables(conn):
-    """Initialize database tables if they don't exist."""
+    """
+    Initialize database tables if they don't exist.
+    Idempotent - safe to call multiple times.
+    """
     cursor = conn.cursor()
 
     # Orders table
@@ -85,6 +88,21 @@ def init_db_tables(conn):
         )
     """)
 
+    # Seed inventory data (idempotent with ON CONFLICT)
+    products = [
+        ('Widget A', 100),
+        ('Widget B', 50),
+        ('Widget C', 25),
+        ('Gadget X', 10),
+        ('Gadget Y', 5),
+    ]
+    for product, quantity in products:
+        cursor.execute("""
+            INSERT INTO inventory (product_name, quantity)
+            VALUES (%s, %s)
+            ON CONFLICT (product_name) DO UPDATE SET quantity = EXCLUDED.quantity
+        """, (product, quantity))
+
     conn.commit()
     cursor.close()
-    logger.info("Database tables initialized")
+    logger.info("Database tables initialized (idempotent)")
