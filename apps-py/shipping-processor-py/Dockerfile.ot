@@ -1,0 +1,25 @@
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy common module
+COPY common /app/common
+
+# Copy service files
+COPY shipping-processor-py/requirements-ot.txt requirements.txt
+COPY shipping-processor-py/app.py app.py
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Install OpenTelemetry auto-instrumentation
+RUN opentelemetry-bootstrap -a install
+
+EXPOSE 8080
+
+CMD ["opentelemetry-instrument", "gunicorn", "--bind", "0.0.0.0:8080", "--workers", "2", "--threads", "4", "app:app"]

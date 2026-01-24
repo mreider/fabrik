@@ -1,0 +1,10 @@
+Flask==3.0.0
+gunicorn==21.2.0
+psycopg2-binary==2.9.9
+requests==2.31.0
+Werkzeug==3.0.1
+opentelemetry-distro==0.44b0
+opentelemetry-exporter-otlp-proto-http==1.23.0
+opentelemetry-instrumentation-flask==0.44b0
+opentelemetry-instrumentation-psycopg2==0.44b0
+opentelemetry-instrumentation-requests==0.44b0
